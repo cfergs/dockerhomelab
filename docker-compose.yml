@@ -1,0 +1,382 @@
+version: "3.7"
+
+services:
+#automatically update containers      
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    command: --schedule "0 0 6 * * *" --label-enable --cleanup
+    labels:
+    - traefik.enable=false #dump less stuff into logs if you debug
+    restart: unless-stopped
+
+#update dns A records with IP changes
+#Make sure to update ddclient.conf with DNS provider settings
+  ddclient:
+    image: linuxserver/ddclient
+    container_name: ddclient
+    environment:
+    - PUID=${PUID}
+    - PGID=${PGID}  
+    volumes:
+    - ${CONFIG}/ddclient:/config
+    labels:
+    - traefik.enable=false #dump less stuff into logs if you debug
+    restart: unless-stopped
+
+#auth for SSO.
+  ldap:
+    image: osixia/openldap-backup:latest
+    container_name: ldap
+    command: 
+    - --copy-service
+    environment:
+    - LDAP_ORGANISATION=OpenLDAP Domain
+    - LDAP_DOMAIN=${DOMAIN}
+    - LDAP_READONLY_USER=true
+    - LDAP_READONLY_USER_USERNAME=ldap-ro
+    env_file:
+    - ./ldap/ldap.env
+    volumes:
+    - ${NONCOMPLIANTCONFIG}/ldap/db:/var/lib/ldap
+    - ${NONCOMPLIANTCONFIG}/ldap/config:/etc/ldap/slapd.d
+    - ${NONCOMPLIANTCONFIG}/ldap/backup:/data/backup #backs up every day @ 4am
+    #pre-seed initial users. Optional. Won't override existing objects
+    - ./ldap/00-startup.ldif:/container/service/slapd/assets/config/bootstrap/ldif/00-startup.ldif
+    ports: 
+    - 389:389
+    - 636:636
+    labels:
+    - traefik.enable=false #dump less stuff into logs if you debug
+    restart: unless-stopped
+
+#web ui to manage LDAP
+  phpldapadmin:
+    image: osixia/phpldapadmin
+    container_name: ldapadmin
+    environment:
+    - PHPLDAPADMIN_LDAP_HOSTS=ldap
+    - PHPLDAPADMIN_SERVER_PATH=/phpldapadmin
+    - PHPLDAPADMIN_TRUST_PROXY_SSL=true
+    - PHPLDAPADMIN_HTTPS=false #otherwise wont work thru reverse proxy
+    labels:
+    - traefik.http.routers.phpldapadmin.rule=Host(`${DOMAIN}`)&&PathPrefix(`/phpldapadmin`)
+    - traefik.http.routers.phpldapadmin.entrypoints=websecure
+    - traefik.http.routers.phpldapadmin.middlewares=sso-redirect
+    - traefik.http.routers.phpldapadmin.tls.certresolver=letsencrypt
+    - traefik.http.routers.phpldapadmin.tls=true
+    - traefik.port=80
+    restart: unless-stopped
+
+#sso frontend
+  authelia:
+    image: clems4ever/authelia:master
+    container_name: authelia
+    environment:
+    #- NODE_TLS_REJECT_UNAUTHORIZED=0 #TESTING ONLY
+    volumes:
+    - ./authelia/configuration.yml:/etc/authelia/configuration.yml
+    - ${NONCOMPLIANTCONFIG}/authelia/db:/var/lib/authelia/
+    ports:
+    - 9310:8080
+    labels:
+    - traefik.http.routers.auth.rule=Host(`${SSOAUTH_SUBDOMAIN}.${DOMAIN}`)
+    - traefik.http.routers.auth.entrypoints=websecure
+    - traefik.http.routers.auth.tls.certresolver=letsencrypt
+    - traefik.http.routers.auth.tls=true
+    - traefik.port=8080
+    restart: unless-stopped
+
+#reverse proxy solution
+  traefik:
+  #https://docs.traefik.io/user-guides/docker-compose/basic-example/
+    image: "traefik"
+    container_name: traefik
+    command:
+    #- --api.insecure=true #enable dashboard 
+    - --providers.docker=true
+    - --log.Level=info
+    - --accesslog=true
+    - --entrypoints.web.address=:80
+    - --entrypoints.websecure.address=:443
+    - --providers.docker.exposedbydefault=true #expose containers by default.
+    - --certificatesResolvers.letsencrypt.acme.email=${EMAIL}
+    - --certificatesResolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    - --certificatesResolvers.letsencrypt.acme.tlsChallenge=true # used during the challenge, default is normally to use HTTP.
+    #enable below URL when testing otherwise you hit letsencrypt limits around generating certs
+    - --certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory
+    volumes: 
+    - letsencrypt:/letsencrypt/
+    - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+    - 80:80
+    - 443:443
+    - 8080:8080
+    labels:
+    #sets global http to https redirect
+    #REF to https://blog.containo.us/traefik-2-0-docker-101-fc2893944b9d
+    - traefik.http.routers.redirs.rule=hostregexp(`{host:.+}`)
+    - traefik.http.routers.redirs.entrypoints=web
+    - traefik.http.routers.redirs.middlewares=redirect-to-https
+    - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+    #sso-auth redirect
+    - traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:8080/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/#/
+    - traefik.http.middlewares.sso-redirect.forwardauth.trustforwardheader=true
+    #basic auth
+    - traefik.http.middlewares.basicauth.basicauth.users=${BASICAUTH_USER}:${BASICAUTH_PASSWORD}
+    restart: unless-stopped
+
+#movie manager
+  radarr:
+    image: linuxserver/radarr
+    container_name: radarr
+    environment:
+    - PUID=${PUID}
+    - PGID=${PGID}
+    volumes:
+    - ${CONFIG}/radarr:/config
+    - ${DOWNLOAD}/complete:/downloads
+    - ${MEDIA}/movies:/movies
+    labels:
+    #must set Urlbase value in config.xml to /radarr otherwise won't work.
+    - traefik.port=7878
+    #sso redirect
+    - traefik.http.routers.radarr.rule=Host(`${DOMAIN}`)&&PathPrefix(`/radarr`)
+    - traefik.http.routers.radarr.entrypoints=websecure
+    - traefik.http.routers.radarr.middlewares=sso-redirect
+    - traefik.http.routers.radarr.tls.certresolver=letsencrypt
+    - traefik.http.routers.radarr.tls=true
+    #api redirect to basicauth - easier to have seperate subdomain rather than seperate /api as /api used in www site- you would need to SSO then do basic auth
+    - traefik.http.routers.radarr-api.rule=Host(`${BASICAUTH_SUBDOMAIN}.${DOMAIN}`)&&PathPrefix(`/radarr`)
+    - traefik.http.routers.radarr-api.entrypoints=websecure
+    - traefik.http.routers.radarr-api.middlewares=basicauth
+    - traefik.http.routers.radarr-api.tls.certresolver=letsencrypt
+    - traefik.http.routers.radarr-api.tls=true
+    restart: unless-stopped
+
+#tv show manager
+  sonarr:
+    image: "linuxserver/sonarr"
+    container_name: sonarr
+    environment:
+    - PUID=${PUID}
+    - PGID=${PGID}
+    volumes:
+    - ${CONFIG}/sonarr:/config
+    - ${DOWNLOAD}/complete:/downloads
+    - ${MEDIA}/tv:/tv
+    - ${MEDIA}/cartoons:/cartoons
+    ports: 
+    - 8989:8989
+    labels:   
+    #must set Urlbase value in config.xml to /sonarr otherwise won't work.
+    - traefik.port=8989
+    #sso redirect
+    - traefik.http.routers.sonarr.rule=Host(`${DOMAIN}`)&&PathPrefix(`/sonarr`)
+    - traefik.http.routers.sonarr.entrypoints=websecure
+    - traefik.http.routers.sonarr.middlewares=sso-redirect
+    - traefik.http.routers.sonarr.tls.certresolver=letsencrypt
+    - traefik.http.routers.sonarr.tls=true
+    #api redirect to basicauth - easier to have seperate subdomain rather than seperate /api as /api used in www site- you would need to SSO then do basic auth
+    - traefik.http.routers.sonarr-api.rule=Host(`${BASICAUTH_SUBDOMAIN}.${DOMAIN}`)&&PathPrefix(`/sonarr`)
+    - traefik.http.routers.sonarr-api.entrypoints=websecure
+    - traefik.http.routers.sonarr-api.middlewares=basicauth
+    - traefik.http.routers.sonarr-api.tls.certresolver=letsencrypt
+    - traefik.http.routers.sonarr-api.tls=true
+    restart: unless-stopped
+
+#subtitles download for sonarr and radarr (if your into that thing)
+  bazarr:
+    image: linuxserver/bazarr
+    container_name: bazarr
+    environment:
+    - PUID=${PUID}
+    - PGID=${PGID}
+    volumes:
+    - ${CONFIG}/bazarr:/config
+    - ${MEDIA}/tv:/tv
+    - ${MEDIA}/movies:/movies
+    ports:
+    - 6767:6767
+    labels:
+    #NOTE: 22/11/2019 - config.ini only generated when setup run- go to localhost:6767 and run thru config. change BaseURL to /subtitles
+    #Alternatively if using an existing config.ini confirm base_url value in config.ini set to /subtitles/
+    - traefik.http.routers.bazarr.rule=Host(`${DOMAIN}`)&&PathPrefix(`/subtitles`)
+    - traefik.http.routers.bazarr.entrypoints=websecure
+    - traefik.http.routers.bazarr.middlewares=sso-redirect
+    - traefik.http.routers.bazarr.tls.certresolver=letsencrypt
+    - traefik.http.routers.bazarr.tls=true
+    - traefik.port=6767
+    restart: unless-stopped
+
+#book downloader
+  lazylibrarian:
+    image: "linuxserver/lazylibrarian"
+    container_name: lazylibrarian
+    environment:
+    - PUID=${PUID}
+    - PGID=${PGID}
+    volumes:
+    - ${CONFIG}/lazylibrarian:/config
+    - ${DOWNLOAD}/complete:/downloads
+    - ${MEDIA}/books:/books
+    ports:
+    - 5299:5299
+    labels:
+    #must set http_root value in config.ini to /books otherwise won't work - add value if doesnt exist
+    - traefik.http.routers.lazylibrarian.rule=Host(`${DOMAIN}`)&&PathPrefix(`/books`)
+    - traefik.http.routers.lazylibrarian.entrypoints=websecure
+    - traefik.http.routers.lazylibrarian.middlewares=sso-redirect
+    - traefik.http.routers.lazylibrarian.tls.certresolver=letsencrypt
+    - traefik.http.routers.lazylibrarian.tls=true
+    - traefik.port=5299
+    restart: unless-stopped
+
+#download comics
+  mylar:
+    image: "linuxserver/mylar"
+    container_name: mylar
+    environment:
+    - PUID=${PUID}
+    - PGID=${PGID}
+    volumes: 
+    - ${CONFIG}/mylar:/config
+    - ${DOWNLOAD}/complete:/downloads
+    - ${MEDIA}/comics:/comics
+    ports:
+    - 8090:8090
+    labels:
+    #must set http_root value in config.ini to /comics otherwise won't work.
+    - traefik.http.routers.mylar.rule=Host(`${DOMAIN}`)&&PathPrefix(`/comics`)
+    - traefik.http.routers.mylar.entrypoints=websecure
+    - traefik.http.routers.mylar.middlewares=sso-redirect
+    - traefik.http.routers.mylar.tls.certresolver=letsencrypt
+    - traefik.http.routers.mylar.tls=true
+    - traefik.port=8090
+    restart: unless-stopped
+
+#search multiple usenet indexers at once
+  nzbhydra:
+    image: "linuxserver/hydra2"
+    container_name: nzbhydra
+    environment:
+    - PUID=${PUID}
+    - PGID=${PGID}
+    volumes:
+    - ${CONFIG}/nzbhydra2:/config
+    - ${DOWNLOAD}/complete:/downloads
+    ports:
+    - 5076:5076
+    labels:
+    #must set urlBase value to "/hydra2" in nzbhydra.yml otherwise won't work.
+    - traefik.port=5076
+    #sso redirect
+    - traefik.http.routers.hydra2.rule=Host(`${DOMAIN}`)&&PathPrefix(`/hydra2`) 
+    - traefik.http.routers.hydra2.entrypoints=websecure
+    - traefik.http.routers.hydra2.middlewares=sso-redirect
+    - traefik.http.routers.hydra2.tls.certresolver=letsencrypt
+    - traefik.http.routers.hydra2.tls=true
+    #api redirect to basicauth
+    - traefik.http.routers.hydra2-api.rule=Host(`${BASICAUTH_SUBDOMAIN}.${DOMAIN}`)&&PathPrefix(`/hydra2`)
+    - traefik.http.routers.hydra2-api.entrypoints=websecure
+    - traefik.http.routers.hydra2-api.middlewares=basicauth
+    - traefik.http.routers.hydra2-api.tls.certresolver=letsencrypt
+    - traefik.http.routers.hydra2-api.tls=true
+    restart: unless-stopped
+
+#search multiple torrent trackers at once
+  jackett:
+    image: "linuxserver/jackett"
+    container_name: jackett
+    environment:
+    - PUID=${PUID}
+    - PGID=${PGID}
+    volumes: 
+    - ${CONFIG}/jackett:/config
+    - ${DOWNLOAD}/blackhole:/downloads
+    ports:
+    - 9117:9117
+    labels:
+    #must set BasePathOverride value to "/jackett/" in ServerConfig.json otherwise won't work.
+    - traefik.port=9117
+    #sso redirect
+    - traefik.http.routers.jackett.rule=Host(`${DOMAIN}`)&&PathPrefix(`/jackett`)
+    - traefik.http.routers.jackett.entrypoints=websecure
+    - traefik.http.routers.jackett.middlewares=sso-redirect
+    - traefik.http.routers.jackett.tls.certresolver=letsencrypt
+    - traefik.http.routers.jackett.tls=true
+    #api redirect to basicauth - easier to have seperate subdomain rather than seperate /api as /api used in www site- you would need to SSO then do basic auth
+    - traefik.http.routers.jackett-api.rule=Host(`${BASICAUTH_SUBDOMAIN}.${DOMAIN}`)&&PathPrefix(`/jackett`)
+    - traefik.http.routers.jackett-api.entrypoints=websecure
+    - traefik.http.routers.jackett-api.middlewares=basicauth
+    - traefik.http.routers.jackett-api.tls.certresolver=letsencrypt
+    - traefik.http.routers.jackett-api.tls=true
+    restart: unless-stopped
+
+#download usenet files
+  sabnzbd:
+    image: "linuxserver/sabnzbd"
+    container_name: sabnzbd
+    environment:
+    - PUID=${PUID}
+    - PGID=${PGID}
+    volumes: 
+    - ${CONFIG}/sabnzbd:/config
+    - ${DOWNLOAD}/complete:/downloads
+    - ${DOWNLOAD}/incomplete:/incomplete-downloads
+    ports:
+    - 8080
+    labels:
+    # must update host_whitelist value in sabnzbd.ini config to include website (EG: example.com) 
+    #otherwise you get error "Access denied - Hostname verification failed"
+    - traefik.port=8080
+    #sso redirect
+    - traefik.http.routers.sabnzbd.rule=Host(`${DOMAIN}`)&&PathPrefix(`/sabnzbd`)
+    - traefik.http.routers.sabnzbd.entrypoints=websecure
+    - traefik.http.routers.sabnzbd.middlewares=sso-redirect
+    - traefik.http.routers.sabnzbd.tls.certresolver=letsencrypt
+    - traefik.http.routers.sabnzbd.tls=true
+    #basic auth
+    - traefik.http.routers.sabnzbd-api.rule=Host(`${BASICAUTH_SUBDOMAIN}.${DOMAIN}`)&&PathPrefix(`/sabnzbd`)
+    - traefik.http.routers.sabnzbd-api.entrypoints=websecure
+    - traefik.http.routers.sabnzbd-api.middlewares=basicauth
+    - traefik.http.routers.sabnzbd-api.tls.certresolver=letsencrypt
+    - traefik.http.routers.sabnzbd-api.tls=true
+    restart: unless-stopped
+
+  transmission:
+    image: linuxserver/transmission
+    container_name: transmission
+    environment:
+    - PUID=${PUID}
+    - PGID=${PGID}
+    - TRANSMISSION_WEB_HOME=/transmission-web-control/
+    volumes:
+    - ${CONFIG}/transmission:/config
+    - ${DOWNLOAD}/complete:/downloads
+    - ${DOWNLOAD}/blackhole:/watch
+    ports:
+    - 51413
+    - 51413/udp
+    - 9091:9091
+    labels:
+    #must also update "rpc-host-whitelist-enabled" value as false in settings.json otherwise you cant access settings
+    - traefik.port=9091
+    #sso redirect
+    - traefik.http.routers.transmission.rule=Host(`${DOMAIN}`)&&PathPrefix(`/transmission`)
+    - traefik.http.routers.transmission.entrypoints=websecure
+    - traefik.http.routers.transmission.middlewares=sso-redirect
+    - traefik.http.routers.transmission.tls.certresolver=letsencrypt
+    - traefik.http.routers.transmission.tls=true
+    #basic auth - /rpc is api but webui also uses this
+    - traefik.http.routers.transmission-api.rule=Host(`${BASICAUTH_SUBDOMAIN}.${DOMAIN}`)&&PathPrefix(`/transmission`)
+    - traefik.http.routers.transmission-api.entrypoints=websecure
+    - traefik.http.routers.transmission-api.middlewares=basicauth
+    - traefik.http.routers.transmission-api.tls.certresolver=letsencrypt
+    - traefik.http.routers.transmission-api.tls=true
+    restart: unless-stopped
+
+volumes:
+  letsencrypt:

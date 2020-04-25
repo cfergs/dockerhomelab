@@ -1,0 +1,119 @@
+###############################################################
+#                Authelia minimal configuration               #
+###############################################################
+
+jwt_secret : 123456
+
+logs_level: debug
+
+authentication_backend:
+#  file:
+#    path: /etc/authelia/users_database.yml
+
+ ldap:
+    # The url of the ldap server
+    url: ldap://ldap
+
+    # The base dn for every entries
+    base_dn: dc=example,dc=com
+
+    # An additional dn to define the scope to all users
+    additional_users_dn: ou=users
+
+    # The users filter used to find the user DN
+    # {0} is a matcher replaced by username.
+    # 'cn={0}' by default.
+    users_filter: (cn={0})
+
+    # An additional dn to define the scope of groups
+    additional_groups_dn: ou=groups
+
+    # The groups filter used for retrieving groups of a given user.
+    # {0} is a matcher replaced by username.
+    # {dn} is a matcher replaced by user DN.
+    # {uid} is a matcher replaced by user uid.
+    # 'member={dn}' by default.
+    groups_filter: (&(uniqueMember={dn})(objectclass=groupOfUniqueNames))
+
+    # The attribute holding the name of the group
+    group_name_attribute: cn
+
+    # The attribute holding the mail address of the user
+    mail_attribute: mail
+
+    # The username and password of the admin user.
+    user: cn=admin,dc=example,dc=com
+    password: 
+
+session:
+  secret: unsecure_session_secret
+  domain: example.com
+
+# Configuration of the storage backend used to store data and secrets. i.e. totp data
+storage:
+  #local:
+    #path: /etc/authelia/storage
+
+    local:
+      path: /var/lib/authelia/db.sqlite3
+# TOTP Issuer Name
+#
+# This will be the issuer name displayed in Google Authenticator
+# See: https://github.com/google/google-authenticator/wiki/Key-Uri-Format for more info on issuer names
+totp:
+  issuer: example.com
+
+# Access Control
+#
+# Access control is a set of rules you can use to restrict user access to certain 
+# resources.
+access_control:
+  # Default policy can either be `bypass`, `one_factor`, `two_factor` or `deny`.
+  default_policy: deny
+
+  rules:
+    - domain: example.com
+    - subject: "group:users"
+    resources: 
+     - "/subtitles*"
+     - "/sonarr*"
+     - "/radarr*"
+     - "/comics*"
+     - "/books*"
+    policy: one_factor
+  - domain: example.com
+    subject: "group:admins"
+    policy: one_factor
+  - domain: auth.example.com
+    policy: one_factor
+      #
+      
+# Configuration of the authentication regulation mechanism.
+regulation: 
+  # Set it to 0 to disable max_retries.
+  max_retries: 3
+
+  # The user is banned if the authenticaction failed `max_retries` times in a `find_time` seconds window. 
+  find_time: 120
+
+  # The length of time before a banned user can login again.
+  ban_time: 300
+
+# Default redirection URL
+#
+# Note: this parameter is optional. If not provided, user won't
+# be redirected upon successful authentication.
+
+notifier:
+  # For testing purpose, notifications can be sent in a file
+  #filesystem:
+   # filename: /tmp/authelia/notification.txt
+    
+    
+   #email:
+   smtp:
+     username: 
+     password: 
+     sender: authelia@example.com
+     host: smtp.gmail.com
+     port: 587
