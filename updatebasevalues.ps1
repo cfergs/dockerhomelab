@@ -88,7 +88,7 @@ If($ConfigUpdates -and $DomainName) {
 
   #update sabnzbd
   $msg = Get-Content $ConfigFolder\sabnzbd\sabnzbd.ini
-  $msg -Replace ("host_whitelist*.*","host_whitelist = $domainname,basic.$domainname") | Set-Content $ConfigFolder\sabnzbd\sabnzbd.ini
+  $msg -Replace ("host_whitelist*.*","host_whitelist = $domainname,base.$domainname") | Set-Content $ConfigFolder\sabnzbd\sabnzbd.ini
 
   #update transmission 
   $msg = Get-Content $ConfigFolder\transmission\settings.json
