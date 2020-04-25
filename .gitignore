@@ -1,0 +1,6 @@
+#Ignore the following
+.env
+authelia/authelia.env
+authelia/configuration.yml
+ldap/00-startup.ldif
+ldap/ldap.env
