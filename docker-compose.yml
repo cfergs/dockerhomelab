@@ -72,21 +72,22 @@ services:
 
 #sso frontend
   authelia:
-    image: clems4ever/authelia:master
+    image: authelia/authelia:master
     container_name: authelia
-    environment:
+    #environment:
     #- NODE_TLS_REJECT_UNAUTHORIZED=0 #TESTING ONLY
+    env_file:
+    - ./authelia/authelia.env
     volumes:
     - ./authelia/configuration.yml:/etc/authelia/configuration.yml
     - ${NONCOMPLIANTCONFIG}/authelia/db:/var/lib/authelia/
-    ports:
-    - 9310:8080
+#    expose: 
+#    - 9091
     labels:
     - traefik.http.routers.auth.rule=Host(`${SSOAUTH_SUBDOMAIN}.${DOMAIN}`)
     - traefik.http.routers.auth.entrypoints=websecure
     - traefik.http.routers.auth.tls.certresolver=letsencrypt
     - traefik.http.routers.auth.tls=true
-    - traefik.port=8080
     restart: unless-stopped
 
 #reverse proxy solution
@@ -95,7 +96,7 @@ services:
     image: "traefik"
     container_name: traefik
     command:
-    #- --api.insecure=true #enable dashboard 
+    - --api.insecure=true #enable dashboard 
     - --providers.docker=true
     - --log.Level=info
     - --accesslog=true
@@ -122,7 +123,7 @@ services:
     - traefik.http.routers.redirs.middlewares=redirect-to-https
     - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
     #sso-auth redirect
-    - traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:8080/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/#/
+    - traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:9091/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/#/
     - traefik.http.middlewares.sso-redirect.forwardauth.trustforwardheader=true
     #basic auth
     - traefik.http.middlewares.basicauth.basicauth.users=${BASICAUTH_USER}:${BASICAUTH_PASSWORD}
@@ -141,7 +142,6 @@ services:
     - ${MEDIA}/movies:/movies
     labels:
     #must set Urlbase value in config.xml to /radarr otherwise won't work.
-    - traefik.port=7878
     #sso redirect
     - traefik.http.routers.radarr.rule=Host(`${DOMAIN}`)&&PathPrefix(`/radarr`)
     - traefik.http.routers.radarr.entrypoints=websecure
@@ -168,11 +168,8 @@ services:
     - ${DOWNLOAD}/complete:/downloads
     - ${MEDIA}/tv:/tv
     - ${MEDIA}/cartoons:/cartoons
-    ports: 
-    - 8989:8989
     labels:   
     #must set Urlbase value in config.xml to /sonarr otherwise won't work.
-    - traefik.port=8989
     #sso redirect
     - traefik.http.routers.sonarr.rule=Host(`${DOMAIN}`)&&PathPrefix(`/sonarr`)
     - traefik.http.routers.sonarr.entrypoints=websecure
@@ -198,8 +195,6 @@ services:
     - ${CONFIG}/bazarr:/config
     - ${MEDIA}/tv:/tv
     - ${MEDIA}/movies:/movies
-    ports:
-    - 6767:6767
     labels:
     #NOTE: 22/11/2019 - config.ini only generated when setup run- go to localhost:6767 and run thru config. change BaseURL to /subtitles
     #Alternatively if using an existing config.ini confirm base_url value in config.ini set to /subtitles/
@@ -208,7 +203,6 @@ services:
     - traefik.http.routers.bazarr.middlewares=sso-redirect
     - traefik.http.routers.bazarr.tls.certresolver=letsencrypt
     - traefik.http.routers.bazarr.tls=true
-    - traefik.port=6767
     restart: unless-stopped
 
 #book downloader
@@ -222,8 +216,6 @@ services:
     - ${CONFIG}/lazylibrarian:/config
     - ${DOWNLOAD}/complete:/downloads
     - ${MEDIA}/books:/books
-    ports:
-    - 5299:5299
     labels:
     #must set http_root value in config.ini to /books otherwise won't work - add value if doesnt exist
     - traefik.http.routers.lazylibrarian.rule=Host(`${DOMAIN}`)&&PathPrefix(`/books`)
@@ -231,7 +223,6 @@ services:
     - traefik.http.routers.lazylibrarian.middlewares=sso-redirect
     - traefik.http.routers.lazylibrarian.tls.certresolver=letsencrypt
     - traefik.http.routers.lazylibrarian.tls=true
-    - traefik.port=5299
     restart: unless-stopped
 
 #download comics
@@ -245,8 +236,6 @@ services:
     - ${CONFIG}/mylar:/config
     - ${DOWNLOAD}/complete:/downloads
     - ${MEDIA}/comics:/comics
-    ports:
-    - 8090:8090
     labels:
     #must set http_root value in config.ini to /comics otherwise won't work.
     - traefik.http.routers.mylar.rule=Host(`${DOMAIN}`)&&PathPrefix(`/comics`)
@@ -254,7 +243,6 @@ services:
     - traefik.http.routers.mylar.middlewares=sso-redirect
     - traefik.http.routers.mylar.tls.certresolver=letsencrypt
     - traefik.http.routers.mylar.tls=true
-    - traefik.port=8090
     restart: unless-stopped
 
 #search multiple usenet indexers at once
@@ -267,11 +255,8 @@ services:
     volumes:
     - ${CONFIG}/nzbhydra2:/config
     - ${DOWNLOAD}/complete:/downloads
-    ports:
-    - 5076:5076
     labels:
     #must set urlBase value to "/hydra2" in nzbhydra.yml otherwise won't work.
-    - traefik.port=5076
     #sso redirect
     - traefik.http.routers.hydra2.rule=Host(`${DOMAIN}`)&&PathPrefix(`/hydra2`) 
     - traefik.http.routers.hydra2.entrypoints=websecure
@@ -296,11 +281,8 @@ services:
     volumes: 
     - ${CONFIG}/jackett:/config
     - ${DOWNLOAD}/blackhole:/downloads
-    ports:
-    - 9117:9117
     labels:
     #must set BasePathOverride value to "/jackett/" in ServerConfig.json otherwise won't work.
-    - traefik.port=9117
     #sso redirect
     - traefik.http.routers.jackett.rule=Host(`${DOMAIN}`)&&PathPrefix(`/jackett`)
     - traefik.http.routers.jackett.entrypoints=websecure
@@ -322,16 +304,13 @@ services:
     environment:
     - PUID=${PUID}
     - PGID=${PGID}
-    volumes: 
+    volumes:
     - ${CONFIG}/sabnzbd:/config
     - ${DOWNLOAD}/complete:/downloads
     - ${DOWNLOAD}/incomplete:/incomplete-downloads
-    ports:
-    - 8080
     labels:
     # must update host_whitelist value in sabnzbd.ini config to include website (EG: example.com) 
     #otherwise you get error "Access denied - Hostname verification failed"
-    - traefik.port=8080
     #sso redirect
     - traefik.http.routers.sabnzbd.rule=Host(`${DOMAIN}`)&&PathPrefix(`/sabnzbd`)
     - traefik.http.routers.sabnzbd.entrypoints=websecure
