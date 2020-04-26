@@ -67,9 +67,8 @@ This will download all containers & create other folders where needed
 #### Step 4 - Modify values
 Some default values will need to be changed for your site to work.
 1. (if running windows) Start by running `updatebasevalues.ps1 -ConfigFolder configfoldertoppath -ConfigUpdates -DomainName your_domain.com` . This will change the domain url for many sites and grant access to sabnzbd & transmission. Otherwise good luck editing!
-2. Login to Bazarr locally via http://localhost:6767 and update values accordingly
-3. create users and admins group and user accounts in openldap (if not already) - if stuck for setting passwords connect to LDAPADMIN.exe tool using docker IP.
-4. ddclient \
+2. create users and admins group and user accounts in openldap (if not already) - if stuck for setting passwords connect to LDAPADMIN.exe tool using docker IP.
+3. ddclient \
 add values for your dynamic IP  \
 for example if you were using namecheap and updating records for example.com,auth.example.com and basic.example.com it would be
 

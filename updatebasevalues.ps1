@@ -64,7 +64,8 @@ If($ConfigUpdates -and $DomainName) {
   $msg -Replace ("<UrlBase>*.*</UrlBase>","<UrlBase>/sonarr</UrlBase>") | Set-Content $ConfigFolder\sonarr\config.xml
 
   #update bazarr
-  #Set manually for now (nov 2019)
+  $msg = Get-Content $ConfigFolder\bazarr\config\config.ini 
+  $msg[3] -Replace ("base_url*.*","base_url = /subtitles/") | Set-Content $ConfigFolder\bazarr\config\config.ini
 
   #update lazylibrarian
   $msg = Get-Content $ConfigFolder\lazylibrarian\config.ini 
@@ -87,10 +88,18 @@ If($ConfigUpdates -and $DomainName) {
   $msg -Replace ('"BasePathOverride":*.*','"BasePathOverride": "/jackett/",') | Set-Content $ConfigFolder\jackett\Jackett\ServerConfig.json 
 
   #update sabnzbd
+  #fixes:
+  # 1. issue with page not loading due to non-whitelisting
+  # 2. sets correct download folders - container doesnt set this as sabnzbd.ini created AFTER container. 
+  # 2..cont. + using different folders stops it conflicting with torrent downloads
   $msg = Get-Content $ConfigFolder\sabnzbd\sabnzbd.ini
-  $msg -Replace ("host_whitelist*.*","host_whitelist = $domainname,base.$domainname") | Set-Content $ConfigFolder\sabnzbd\sabnzbd.ini
+  $msg -Replace("host_whitelist*.*","host_whitelist = $domainname,base.$domainname") -Replace ("download_dir*.*","download_dir = /incomplete-downloads") -Replace ("complete_dir*.*","complete_dir = /nzbcomplete") | Set-Content $ConfigFolder\sabnzbd\sabnzbd.ini
 
   #update transmission 
+  #fixes
+  # 1. issue with settings page not loading
+  # 2. sets correct download folder as container default hardcoded value is wrong
+  # 2..cont. + using different folders stops it conflicting with torrent downloads
   $msg = Get-Content $ConfigFolder\transmission\settings.json
-  $msg -Replace ('"rpc-host-whitelist-enabled": true,','"rpc-host-whitelist-enabled": false,') | Set-Content $ConfigFolder\transmission\settings.json
+  $msg -Replace ('"rpc-host-whitelist-enabled": true,','"rpc-host-whitelist-enabled": false,') -Replace ('"download-dir":*.*','"download-dir": "/torrentdownloads/complete",') -Replace ('"incomplete-dir":*.*','"incomplete-dir": "/torrentdownloads/incomplete",') | Set-Content $ConfigFolder\transmission\settings.json
 }
