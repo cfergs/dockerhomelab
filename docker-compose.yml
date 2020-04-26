@@ -81,8 +81,6 @@ services:
     volumes:
     - ./authelia/configuration.yml:/etc/authelia/configuration.yml
     - ${NONCOMPLIANTCONFIG}/authelia/db:/var/lib/authelia/
-#    expose: 
-#    - 9091
     labels:
     - traefik.http.routers.auth.rule=Host(`${SSOAUTH_SUBDOMAIN}.${DOMAIN}`)
     - traefik.http.routers.auth.entrypoints=websecure
@@ -138,7 +136,9 @@ services:
     - PGID=${PGID}
     volumes:
     - ${CONFIG}/radarr:/config
-    - ${DOWNLOAD}/complete:/downloads
+    - ${DOWNLOAD}/usenet/complete:/nzbcomplete #needed to get nzb files D/L thru sabnzbd api
+    - ${DOWNLOAD}/torrents:/torrentdownloads #needed to get torrent files D/L thru api
+    - ${DOWNLOAD}/complete:/downloads #standalone non-api downloaded items folder
     - ${MEDIA}/movies:/movies
     labels:
     #must set Urlbase value in config.xml to /radarr otherwise won't work.
@@ -165,7 +165,9 @@ services:
     - PGID=${PGID}
     volumes:
     - ${CONFIG}/sonarr:/config
-    - ${DOWNLOAD}/complete:/downloads
+    - ${DOWNLOAD}/usenet/complete:/nzbcomplete #needed to get nzb files D/L thru sabnzbd api
+    - ${DOWNLOAD}/torrents:/torrentdownloads #needed to get torrent files D/L thru api
+    - ${DOWNLOAD}/complete:/downloads #standalone non-api downloaded items folder
     - ${MEDIA}/tv:/tv
     - ${MEDIA}/cartoons:/cartoons
     labels:   
@@ -214,7 +216,9 @@ services:
     - PGID=${PGID}
     volumes:
     - ${CONFIG}/lazylibrarian:/config
-    - ${DOWNLOAD}/complete:/downloads
+    - ${DOWNLOAD}/usenet/complete:/nzbcomplete #needed to get nzb files D/L thru sabnzbd api
+    - ${DOWNLOAD}/torrents:/torrentdownloads #needed to get torrent files D/L thru api
+    - ${DOWNLOAD}/complete:/downloads #standalone non-api downloaded items folder
     - ${MEDIA}/books:/books
     labels:
     #must set http_root value in config.ini to /books otherwise won't work - add value if doesnt exist
@@ -234,7 +238,9 @@ services:
     - PGID=${PGID}
     volumes: 
     - ${CONFIG}/mylar:/config
-    - ${DOWNLOAD}/complete:/downloads
+    - ${DOWNLOAD}/usenet/complete:/nzbcomplete #needed to get nzb files D/L thru sabnzbd api
+    - ${DOWNLOAD}/torrents:/torrentdownloads #needed to get torrent files D/L thru api
+    - ${DOWNLOAD}/complete:/downloads #standalone non-api downloaded items folder
     - ${MEDIA}/comics:/comics
     labels:
     #must set http_root value in config.ini to /comics otherwise won't work.
@@ -306,8 +312,11 @@ services:
     - PGID=${PGID}
     volumes:
     - ${CONFIG}/sabnzbd:/config
-    - ${DOWNLOAD}/complete:/downloads
-    - ${DOWNLOAD}/incomplete:/incomplete-downloads
+    - ${DOWNLOAD}/usenet/complete:/nzbcomplete #keeps usenet and torrent downloads seperated
+    - ${DOWNLOAD}/usenet/incomplete:/incomplete-downloads
+    #26/04/2020 you must change the complete/incomplete locations in the sabnzbd.ini 
+    #otherwise will default to storing in /configs/Downloads/
+    #container can't do it as sabnzbd.ini created AFTER container creation. volumes only map paths for use!
     labels:
     # must update host_whitelist value in sabnzbd.ini config to include website (EG: example.com) 
     #otherwise you get error "Access denied - Hostname verification failed"
@@ -334,7 +343,8 @@ services:
     - TRANSMISSION_WEB_HOME=/transmission-web-control/
     volumes:
     - ${CONFIG}/transmission:/config
-    - ${DOWNLOAD}/complete:/downloads
+    - ${DOWNLOAD}/torrents:/torrentdownloads #keeps usenet and torrent downloads seperated
+    # plus transmission makes its own completed & incomplete subfolders
     - ${DOWNLOAD}/blackhole:/watch
     ports:
     - 51413
@@ -342,7 +352,6 @@ services:
     - 9091:9091
     labels:
     #must also update "rpc-host-whitelist-enabled" value as false in settings.json otherwise you cant access settings
-    - traefik.port=9091
     #sso redirect
     - traefik.http.routers.transmission.rule=Host(`${DOMAIN}`)&&PathPrefix(`/transmission`)
     - traefik.http.routers.transmission.entrypoints=websecure
