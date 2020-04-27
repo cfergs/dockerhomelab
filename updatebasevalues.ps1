@@ -81,11 +81,11 @@ If($ConfigUpdates -and $DomainName) {
 
   #update nzbhydra
   $msg = Get-Content $ConfigFolder\nzbhydra2\nzbhydra.yml 
-  $msg -Replace ("urlBase:*.*",'urlBase: "/hydra2"') | Set-Content $ConfigFolder\nzbhydra2\nzbhydra.yml
+  $msg -Replace ("urlBase:*.*",'urlBase: "/hydra2"') -Replace ("saveTorrentsTo:*.*",'saveTorrentsTo: "/data/downloads/blackhole"') | Set-Content $ConfigFolder\nzbhydra2\nzbhydra.yml
 
   #update jackett
-  $msg = Get-Content $ConfigFolder\jackett\Jackett\ServerConfig.json 
-  $msg -Replace ('"BasePathOverride":*.*','"BasePathOverride": "/jackett/",') | Set-Content $ConfigFolder\jackett\Jackett\ServerConfig.json 
+  $msg = Get-Content $ConfigFolder\jackett\ServerConfig.json 
+  $msg -Replace ('"BasePathOverride":*.*','"BasePathOverride": "/jackett/",') -Replace ('"BlackholeDir":*.*','"BlackholeDir": "/data/downloads/blackhole",') | Set-Content $ConfigFolder\jackett\ServerConfig.json 
 
   #update sabnzbd
   #fixes:
@@ -93,7 +93,7 @@ If($ConfigUpdates -and $DomainName) {
   # 2. sets correct download folders - container doesnt set this as sabnzbd.ini created AFTER container. 
   # 2..cont. + using different folders stops it conflicting with torrent downloads
   $msg = Get-Content $ConfigFolder\sabnzbd\sabnzbd.ini
-  $msg -Replace("host_whitelist*.*","host_whitelist = $domainname,base.$domainname") -Replace ("download_dir*.*","download_dir = /incomplete-downloads") -Replace ("complete_dir*.*","complete_dir = /nzbcomplete") | Set-Content $ConfigFolder\sabnzbd\sabnzbd.ini
+  $msg -Replace("host_whitelist*.*","host_whitelist = $domainname,base.$domainname") -Replace ("download_dir*.*","download_dir = /data/downloads/usenet/incomplete") -Replace ("complete_dir*.*","complete_dir = /data/downloads/usenet/complete") | Set-Content $ConfigFolder\sabnzbd\sabnzbd.ini
 
   #update transmission 
   #fixes
@@ -101,5 +101,5 @@ If($ConfigUpdates -and $DomainName) {
   # 2. sets correct download folder as container default hardcoded value is wrong
   # 2..cont. + using different folders stops it conflicting with torrent downloads
   $msg = Get-Content $ConfigFolder\transmission\settings.json
-  $msg -Replace ('"rpc-host-whitelist-enabled": true,','"rpc-host-whitelist-enabled": false,') -Replace ('"download-dir":*.*','"download-dir": "/torrentdownloads/complete",') -Replace ('"incomplete-dir":*.*','"incomplete-dir": "/torrentdownloads/incomplete",') | Set-Content $ConfigFolder\transmission\settings.json
+  $msg -Replace ('"rpc-host-whitelist-enabled": true,','"rpc-host-whitelist-enabled": false,') -Replace ('"download-dir":*.*','"download-dir": "/data/downloads/torrents/complete",') -Replace ('"incomplete-dir":*.*','"incomplete-dir": "/data/downloads/torrents/incomplete",') | Set-Content $ConfigFolder\transmission\settings.json
 }

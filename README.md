@@ -5,6 +5,7 @@ Contains
 
 | Application   | URLs                                                                       | Purpose                                 |
 |---------------|----------------------------------------------------------------------------|-----------------------------------------|
+| Portainer     | https://DOMAIN/portainer                                                   | Manage containers      |
 | Watchtower    | N/A                                                                        | Update containers to new versions       |
 | ddclient      | N/A                                                                        | update DNS A records with IP changes    |
 | OpenLDAP      | N/A                                                                        | single repository of user accounts      |
@@ -38,8 +39,7 @@ Update values as appropriate \
 For an example where i have the website name of example.com
   ```
   CONFIG=/mnt/config       
-  DOWNLOAD=/mnt/download
-  MEDIA=/mnt/media           
+  CONTENT=/mnt/data          
   PUID=1000                     
   PGID=1000                     
   DOMAIN=example.com            
