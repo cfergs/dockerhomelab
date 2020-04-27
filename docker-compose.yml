@@ -1,5 +1,8 @@
 version: "3.7"
 
+volumes:
+  letsencrypt:
+    
 services:
 #automatically update containers      
   watchtower:
@@ -428,6 +431,3 @@ services:
       - traefik.http.routers.qbt.tls=true
       - traefik.http.middlewares.qbt-chain.chain.middlewares=sso-redirect,strip-prefix-1,strip-prefix-2
       - traefik.http.routers.qbt.middlewares=qbt-chain
-      
-volumes:
-  letsencrypt:
