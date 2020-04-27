@@ -1,15 +1,17 @@
 version: "3.7"
-#https://github.com/qbittorrent/qBittorrent/issues/5693
+
 services:
 #automatically update containers      
   watchtower:
+    # options in https://hub.docker.com/r/v2tec/watchtower
     image: containrrr/watchtower
     container_name: watchtower
     environment:
       - TZ=${TIMEZONE}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --schedule "0 0 6 * * *" --label-enable --cleanup
+    command: --schedule "0 0 6 * * *" --cleanup
+    #--label-enable disable label checking
     labels:
       - traefik.enable=false #dump less stuff into logs if you debug
     restart: unless-stopped
@@ -149,14 +151,15 @@ services:
       - traefik.http.routers.redirs.middlewares=redirect-to-https
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
       #sso-auth redirect
-      #- traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:9091/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/#/
-      - traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:9091/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/
+      - traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:9091/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/#/
+      #- traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:9091/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/
       - traefik.http.middlewares.sso-redirect.forwardauth.trustforwardheader=true
       #basic auth
       - traefik.http.middlewares.basicauth.basicauth.users=${BASICAUTH_USER}:${BASICAUTH_PASSWORD}
       #strip to allow qbt and portainer to work as /url or /url/
       #an issue occurs when chaining qbt with authelia where you need to refresh to continue. No issue with portainer
       #https://github.com/authelia/authelia/issues/372
+      #prefixes taken from https://www.reddit.com/r/Traefik/comments/ezj88o/path_based_redirection_pain_and_suffering_v2/
       - traefik.http.middlewares.strip-prefix-1.redirectregex.regex=^(https?://[^/]+/[a-z0-9_]+)$$
       - traefik.http.middlewares.strip-prefix-1.redirectregex.replacement=$${1}/
       - traefik.http.middlewares.strip-prefix-1.redirectregex.permanent=true
