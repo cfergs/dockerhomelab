@@ -2,7 +2,27 @@ version: "3.7"
 
 volumes:
   letsencrypt:
-    
+
+networks:
+  frontend: #traefik entry point
+    name: frontend
+    driver: bridge
+  mgmt_tier: #mgmt containers
+    name: mgmt_tier
+    driver: bridge
+  auth_tier: #authelia container
+    name: auth_tier
+    driver: bridge
+  database_tier: #openldap
+    name: database_tier
+    internal: true
+  web_tier: # webservices, radarr, sonarr etc
+    name: web_tier
+    driver: bridge
+  download_tier: #torrent, usenet etc
+    name: download_tier
+    driver: bridge
+
 services:
 #automatically update containers      
   watchtower:
@@ -11,6 +31,8 @@ services:
     container_name: watchtower
     environment:
       - TZ=${TIMEZONE}
+    networks:
+      - mgmt_tier
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --schedule "0 0 6 * * *" --cleanup
@@ -27,6 +49,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}  
       - TZ=${TIMEZONE}
+    networks:
+      - mgmt_tier
     volumes: 
       - /var/run/docker.sock:/var/run/docker.sock 
       - /portainer_data:/data portainer/portainer
@@ -48,6 +72,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}  
       - TZ=${TIMEZONE}
+    networks:
+      - mgmt_tier
     volumes:
       - ${CONFIG}/ddclient:/config
     labels:
@@ -66,6 +92,8 @@ services:
       - LDAP_DOMAIN=${DOMAIN}
       - LDAP_READONLY_USER=true
       - LDAP_READONLY_USER_USERNAME=ldap-ro
+    networks:
+        - database_tier
     env_file:
       - ./ldap/ldap.env
     volumes:
@@ -91,7 +119,11 @@ services:
       - PHPLDAPADMIN_SERVER_PATH=/phpldapadmin
       - PHPLDAPADMIN_TRUST_PROXY_SSL=true
       - PHPLDAPADMIN_HTTPS=false #otherwise wont work thru reverse proxy
+    networks:
+      - mgmt_tier
+      - database_tier
     labels:
+      - traefik.docker.network=mgmt_tier
       - traefik.http.routers.phpldapadmin.rule=Host(`${DOMAIN}`)&&PathPrefix(`/phpldapadmin`)
       - traefik.http.routers.phpldapadmin.entrypoints=websecure
       - traefik.http.routers.phpldapadmin.middlewares=sso-redirect
@@ -109,10 +141,14 @@ services:
       #- NODE_TLS_REJECT_UNAUTHORIZED=0 #TESTING ONLY
     env_file:
       - ./authelia/authelia.env
+    networks:
+      - auth_tier
+      - database_tier
     volumes:
       - ./authelia/configuration.yml:/etc/authelia/configuration.yml
       - ${NONCOMPLIANTCONFIG}/authelia/db:/var/lib/authelia/
     labels:
+      - traefik.docker.network=auth_tier
       - traefik.http.routers.auth.rule=Host(`${SSOAUTH_SUBDOMAIN}.${DOMAIN}`)
       - traefik.http.routers.auth.entrypoints=websecure
       - traefik.http.routers.auth.tls.certresolver=letsencrypt
@@ -139,6 +175,12 @@ services:
       - --certificatesResolvers.letsencrypt.acme.tlsChallenge=true # used during the challenge, default is normally to use HTTP.
       #enable below URL when testing otherwise you hit letsencrypt limits around generating certs
       - --certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory
+    networks:
+      - frontend
+      - mgmt_tier
+      - auth_tier
+      - web_tier
+      - download_tier
     volumes: 
       - letsencrypt:/letsencrypt/
       - /var/run/docker.sock:/var/run/docker.sock
@@ -177,11 +219,15 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+    networks:
+      - web_tier
+      - download_tier
     volumes:
       - ${CONFIG}/radarr:/config/app
       - ${CONTENT}/downloads:/data/downloads
       - ${CONTENT}/media/movies:/data/media/movies
     labels:
+      - traefik.docker.network=web_tier
       #must set Urlbase value in config.xml to /radarr otherwise won't work.
       #sso redirect
       - traefik.http.routers.radarr.rule=Host(`${DOMAIN}`)&&PathPrefix(`/radarr`)
@@ -205,13 +251,17 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+    networks:
+      - web_tier
+      - download_tier
     volumes:
       - ${CONFIG}/sonarr:/config/app
       - ${CONTENT}/downloads:/data/downloads
       - ${CONTENT}/media/tv:/data/media/tv
       - ${CONTENT}/media/cartoons:/data/media/cartoons
       - ${CONTENT}/media/anime:/data/media/anime
-    labels:   
+    labels:
+      - traefik.docker.network=web_tier   
       #must set Urlbase value in config.xml to /sonarr otherwise won't work.
       #sso redirect
       - traefik.http.routers.sonarr.rule=Host(`${DOMAIN}`)&&PathPrefix(`/sonarr`)
@@ -235,6 +285,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+    networks:
+      - web_tier
     volumes:
       - ${CONFIG}/bazarr:/config/app
       - ${CONTENT}/media/tv:/data/media/tv
@@ -258,11 +310,15 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+    networks:
+      - web_tier
+      - download_tier
     volumes:
       - ${CONFIG}/lazylibrarian:/config
       - ${CONTENT}/media/books:/books
       - ${CONTENT}/downloads:/data/downloads
     labels:
+      - traefik.docker.network=web_tier  
       #must set http_root value in config.ini to /books otherwise won't work - add value if doesnt exist
       - traefik.http.routers.lazylibrarian.rule=Host(`${DOMAIN}`)&&PathPrefix(`/books`)
       - traefik.http.routers.lazylibrarian.entrypoints=websecure
@@ -279,11 +335,15 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+    networks:
+      - web_tier
+      - download_tier
     volumes: 
       - ${CONFIG}/mylar:/config
       - ${CONTENT}/downloads:/data/downloads
       - ${CONTENT}/media/comics:/comics
     labels:
+      - traefik.docker.network=web_tier  
       #must set http_root value in config.ini to /comics otherwise won't work.
       - traefik.http.routers.mylar.rule=Host(`${DOMAIN}`)&&PathPrefix(`/comics`)
       - traefik.http.routers.mylar.entrypoints=websecure
@@ -300,6 +360,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+    networks:
+      - download_tier
     volumes:
       - ${CONFIG}/nzbhydra2:/config/app
       - ${CONTENT}/downloads/blackhole:/data/downloads/blackhole #for torrent files. NZB files use sab API
@@ -327,6 +389,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+    networks:
+      - web_tier
     volumes: 
       - ${CONFIG}/jackett:/config/app
       - ${CONTENT}/downloads/blackhole:/data/downloads/blackhole
@@ -354,6 +418,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+    networks:
+      - download_tier
     volumes:
       - ${CONFIG}/sabnzbd:/config/app
       - ${CONTENT}/downloads/usenet:/data/downloads/usenet
@@ -385,6 +451,8 @@ services:
       - PGID=${PGID}
       - TZ=${TIMEZONE}
       - TRANSMISSION_WEB_HOME=/transmission-web-control/
+    networks:
+      - download_tier
     volumes:
       - ${CONFIG}/transmission:/config
       - ${CONTENT}/downloads/torrents:/data/downloads/torrents #keeps usenet and torrent downloads seperated
@@ -416,6 +484,8 @@ services:
       retries: 3
     environment:
       - WEBUI_PORT=8521
+    networks:
+      - download_tier
     volumes:
       - ${CONFIG}/qbittorrent:/config
       - ${CONTENT}/downloads/blackhole:/media
@@ -431,3 +501,4 @@ services:
       - traefik.http.routers.qbt.tls=true
       - traefik.http.middlewares.qbt-chain.chain.middlewares=sso-redirect,strip-prefix-1,strip-prefix-2
       - traefik.http.routers.qbt.middlewares=qbt-chain
+    restart: unless-stopped
