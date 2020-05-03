@@ -163,7 +163,8 @@ services:
     environment:
       - TZ=${TIMEZONE}
     command:
-      - --api.insecure=true #enable dashboard 
+      #- --api.insecure=true #troubleshooting
+      - --api.dashboard=true
       - --providers.docker=true
       - --log.Level=info
       - --accesslog=true
@@ -187,24 +188,38 @@ services:
     ports:
       - 80:80
       - 443:443
-      - 8080:8080
+      #- 8080:8080 - troubleshooting
     labels:
-      #sets global http to https redirect
-      #REF to https://blog.containo.us/traefik-2-0-docker-101-fc2893944b9d
+      - traefik.docker.network=frontend
+      # 1. Secure Traefik API (needed for dashboard)
+      - traefik.http.routers.traefik-api.rule=Host(`${DOMAIN}`)&&PathPrefix(`/api`)
+      - traefik.http.routers.traefik-api.entrypoints=websecure
+      - traefik.http.routers.traefik-api.service=api@internal
+      - traefik.http.routers.traefik-api.middlewares=sso-redirect
+      - traefik.http.routers.traefik-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.traefik-api.tls=true
+      # 1.5 Secure Traefik dashboard && not require extra / after /dashboard - will make it get a bit funky and add /dashboard/#/ but works!
+      - traefik.http.routers.traefik-dashboard.rule=Host(`${DOMAIN}`)&&PathPrefix(`/dashboard`)
+      - traefik.http.routers.traefik-dashboard.entrypoints=websecure
+      - traefik.http.routers.traefik-dashboard.service=api@internal
+      - traefik.http.middlewares.traefik-dashboard-chain.chain.middlewares=sso-redirect,strip-prefix-1,strip-prefix-2
+      - traefik.http.routers.traefik-dashboard.middlewares=traefik-dashboard-chain
+      - traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt
+      - traefik.http.routers.traefik-dashboard.tls=true
+      # 2. Global http to https redirect - REF https://blog.containo.us/traefik-2-0-docker-101-fc2893944b9d
       - traefik.http.routers.redirs.rule=hostregexp(`{host:.+}`)
       - traefik.http.routers.redirs.entrypoints=web
       - traefik.http.routers.redirs.middlewares=redirect-to-https
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
-      #sso-auth redirect
+      # 3. Create sso-auth redirect
       - traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:9091/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/#/
-      #- traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:9091/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/
       - traefik.http.middlewares.sso-redirect.forwardauth.trustforwardheader=true
-      #basic auth
+      # 4. Basic auth authentication
       - traefik.http.middlewares.basicauth.basicauth.users=${BASICAUTH_USER}:${BASICAUTH_PASSWORD}
-      #strip to allow qbt and portainer to work as /url or /url/
-      #an issue occurs when chaining qbt with authelia where you need to refresh to continue. No issue with portainer
-      #https://github.com/authelia/authelia/issues/372
-      #prefixes taken from https://www.reddit.com/r/Traefik/comments/ezj88o/path_based_redirection_pain_and_suffering_v2/
+      # 5. Strip /url or /url/ prefixes
+      # an issue occurs when chaining qbt with authelia where you need to refresh to continue. No issue with portainer
+      # https://github.com/authelia/authelia/issues/372
+      # prefixes taken from https://www.reddit.com/r/Traefik/comments/ezj88o/path_based_redirection_pain_and_suffering_v2/
       - traefik.http.middlewares.strip-prefix-1.redirectregex.regex=^(https?://[^/]+/[a-z0-9_]+)$$
       - traefik.http.middlewares.strip-prefix-1.redirectregex.replacement=$${1}/
       - traefik.http.middlewares.strip-prefix-1.redirectregex.permanent=true
@@ -472,33 +487,4 @@ services:
       - traefik.http.routers.transmission-api.middlewares=basicauth
       - traefik.http.routers.transmission-api.tls.certresolver=letsencrypt
       - traefik.http.routers.transmission-api.tls=true
-    restart: unless-stopped
-  
-  qbittorrent:
-    image: linuxserver/qbittorrent:latest
-    container_name: qbittorrent
-    healthcheck:
-      test: curl --fail http://qbittorrent:8521 || exit 1
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    environment:
-      - WEBUI_PORT=8521
-    networks:
-      - download_tier
-    volumes:
-      - ${CONFIG}/qbittorrent:/config
-      - ${CONTENT}/downloads/blackhole:/media
-    labels:
-      #sso redirect and qbt can't handle strop properly, Issue with authelia where you need to refresh to continue.
-      #loadbalancer is needed to force to use correct webui port
-      #otherwise uses port 6881 (found from autodetection)
-      - traefik.http.services.qbt.loadbalancer.server.scheme=http
-      - traefik.http.services.qbt.loadbalancer.server.port=8521
-      - traefik.http.routers.qbt.rule=Host(`${DOMAIN}`)&&PathPrefix(`/qbt`)
-      - traefik.http.routers.qbt.entrypoints=websecure
-      - traefik.http.routers.qbt.tls.certresolver=letsencrypt
-      - traefik.http.routers.qbt.tls=true
-      - traefik.http.middlewares.qbt-chain.chain.middlewares=sso-redirect,strip-prefix-1,strip-prefix-2
-      - traefik.http.routers.qbt.middlewares=qbt-chain
     restart: unless-stopped
