@@ -65,7 +65,8 @@ If($ConfigUpdates -and $DomainName) {
 
   #update bazarr
   $msg = Get-Content $ConfigFolder\bazarr\config\config.ini 
-  $msg[3] -Replace ("base_url*.*","base_url = /subtitles/") | Set-Content $ConfigFolder\bazarr\config\config.ini
+  $msg[3] = 'base_url = /subtitles/'
+  $msg | Set-Content $ConfigFolder\bazarr\config\config.ini
 
   #update lazylibrarian
   $msg = Get-Content $ConfigFolder\lazylibrarian\config.ini 
