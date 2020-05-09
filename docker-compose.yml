@@ -7,21 +7,39 @@ networks:
   frontend: #traefik entry point
     name: frontend
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.23.1.0/24
   mgmt_tier: #mgmt containers
     name: mgmt_tier
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.23.2.0/24
   auth_tier: #authelia container
     name: auth_tier
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.23.3.0/24
   database_tier: #openldap
     name: database_tier
     internal: true
+    ipam:
+      config:
+        - subnet: 172.23.4.0/24
   web_tier: # webservices, radarr, sonarr etc
     name: web_tier
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.23.5.0/24
   download_tier: #torrent, usenet etc
     name: download_tier
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.23.6.0/24
 
 services:
 #automatically update containers      
@@ -457,15 +475,40 @@ services:
       - traefik.http.routers.sabnzbd-api.tls.certresolver=letsencrypt
       - traefik.http.routers.sabnzbd-api.tls=true
     restart: unless-stopped
-
+  
   transmission:
-    image: linuxserver/transmission
+    image: haugene/transmission-openvpn
     container_name: transmission
+    healthcheck:
+      interval: 5s
+      start_period: 10s
+    cap_add:
+      - NET_ADMIN
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
-      - TRANSMISSION_WEB_HOME=/transmission-web-control/
+      - CREATE_TUN_DEVICE=true
+      - LOCAL_NETWORK=172.23.6.0/24
+      - TRANSMISSION_SCRAPE_PAUSED_TORRENTS_ENABLED=false
+      - TRANSMISSION_RPC_AUTHENTICATION_REQUIRED=false
+      - TRANSMISSION_RPC_HOST_WHITELIST_ENABLED=false
+      - TRANSMISSION_RATIO_LIMIT=0
+      - TRANSMISSION_RATIO_LIMIT_ENABLED=true
+      - TRANSMISSION_WATCH_DIR=/watch
+      - TRANSMISSION_DOWNLOAD_DIR=/data/downloads/torrents/complete
+      - TRANSMISSION_INCOMPLETE_DIR=/data/downloads/torrents/incomplete
+      - TRANSMISSION_WEB_UI=transmission-web-control
+      - OPENVPN_PROVIDER=NORDVPN
+      - OPENVPN_USERNAME=${NORDVPN_USERNAME}
+      - OPENVPN_PASSWORD=${NORDVPN_PASSWORD}
+      - NORDVPN_CATEGORY=P2P
+      - NORDVPN_PROTOCOL=udp
+      - OPENVPN_OPTS=--inactive 3600 --ping 10 --ping-exit 60
+      - WEBPROXY_ENABLED=false
     networks:
       - download_tier
     volumes:
@@ -474,17 +517,23 @@ services:
       # plus transmission makes its own completed & incomplete subfolders
       - ${CONTENT}/downloads/blackhole:/watch
     labels:
-      #must also update "rpc-host-whitelist-enabled" value as false in settings.json otherwise you cant access settings
+      - traefik.docker.network=download_tier
       #sso redirect
       - traefik.http.routers.transmission.rule=Host(`${DOMAIN}`)&&PathPrefix(`/transmission`)
       - traefik.http.routers.transmission.entrypoints=websecure
       - traefik.http.routers.transmission.middlewares=sso-redirect
       - traefik.http.routers.transmission.tls.certresolver=letsencrypt
       - traefik.http.routers.transmission.tls=true
+      - traefik.http.routers.transmission.service=transmission
+      - traefik.http.services.transmission.loadbalancer.server.scheme=http
+      - traefik.http.services.transmission.loadbalancer.server.port=9091
       #basic auth - /rpc is api but webui also uses this
       - traefik.http.routers.transmission-api.rule=Host(`${BASICAUTH_SUBDOMAIN}.${DOMAIN}`)&&PathPrefix(`/transmission`)
       - traefik.http.routers.transmission-api.entrypoints=websecure
       - traefik.http.routers.transmission-api.middlewares=basicauth
       - traefik.http.routers.transmission-api.tls.certresolver=letsencrypt
       - traefik.http.routers.transmission-api.tls=true
-    restart: unless-stopped
+      - traefik.http.routers.transmission-api.service=transmission-api
+      - traefik.http.services.transmission-api.loadbalancer.server.scheme=http
+      - traefik.http.services.transmission-api.loadbalancer.server.port=9091
+    restart: always

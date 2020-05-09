@@ -48,6 +48,8 @@ For an example where i have the website name of example.com
   BASICAUTH_USER=basicuser      
   BASICAUTH_PASSWORD="encrypted password generated from https://www.htaccesstools.com/htpasswd-generator/"
   BASICAUTH_SUBDOMAIN=basic
+  NORDVPN_USERNAME= bob@bob.com
+  NORDVPN_PASSWORD= PASSWORD
   ```
 
 3. OpenLDAP
