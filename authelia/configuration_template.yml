@@ -106,7 +106,7 @@ authentication_backend:
     #
     # To allow sign in both with username and email, one can use a filter like
     # (&(|({username_attribute}={input})({mail_attribute}={input}))(objectClass=person))
-    users_filter: (&({username_attribute}={input})(objectClass=person))
+    users_filter: (&({username_attribute}={input})(objectClass=inetOrgPerson))
 
     # An additional dn to define the scope of groups
     additional_groups_dn: ou=groups
@@ -119,7 +119,7 @@ authentication_backend:
     # - {mail_attribute} is a placeholder replaced by what is configured in `mail_attribute`.
     # - DON'T USE - {0} is an alias for {input} supported for backward compatibility but it will be deprecated in later versions, so please don't use it.
     # - DON'T USE - {1} is an alias for {username} supported for backward compatibility but it will be deprecated in later version, so please don't use it.
-    groups_filter: (&(uniqueMember={dn})(objectclass=groupOfUniqueNames))
+    groups_filter: (&(member={dn})(objectclass=groupOfNames))
 
     # The attribute holding the name of the group
     group_name_attribute: cn
@@ -189,6 +189,14 @@ access_control:
     
     - domain: example.com
       subject: "group:admins"
+      policy: one_factor
+
+    - domain: calibre.example.com
+      subject: "group:admins"
+      policy: one_factor
+
+    - domain: calibre.example.com
+      subject: "group:users"
       policy: one_factor
 
 # Configuration of session cookies

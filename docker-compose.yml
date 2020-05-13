@@ -100,7 +100,7 @@ services:
 
 #auth for SSO.
   ldap:
-    image: osixia/openldap-backup:latest
+    image: osixia/openldap:latest
     container_name: ldap
     command: 
       - --copy-service
@@ -117,12 +117,8 @@ services:
     volumes:
       - ${NONCOMPLIANTCONFIG}/ldap/db:/var/lib/ldap
       - ${NONCOMPLIANTCONFIG}/ldap/config:/etc/ldap/slapd.d
-      - ${NONCOMPLIANTCONFIG}/ldap/backup:/data/backup #backs up every day @ 4am
       #pre-seed initial users. Optional. Won't override existing objects
       - ./ldap/00-startup.ldif:/container/service/slapd/assets/config/bootstrap/ldif/00-startup.ldif
-    ports: 
-      - 389:389
-      - 636:636
     labels:
       - traefik.enable=false #dump less stuff into logs if you debug
     restart: unless-stopped
