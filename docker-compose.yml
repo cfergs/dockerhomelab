@@ -252,6 +252,7 @@ services:
       - web_tier
       - download_tier
     volumes:
+      - ./config/radarr-init-script.sh:/etc/cont-init.d/99-radarr-init.sh #sets urlbase
       - ${CONFIG}/radarr:/config/app
       - ${CONTENT}/downloads:/data/downloads
       - ${CONTENT}/media/movies:/data/media/movies
@@ -284,6 +285,7 @@ services:
       - web_tier
       - download_tier
     volumes:
+      - ./config/sonarr-init-script.sh:/etc/cont-init.d/99-sonarr-init.sh #sets urlbase
       - ${CONFIG}/sonarr:/config/app
       - ${CONTENT}/downloads:/data/downloads
       - ${CONTENT}/media/tv:/data/media/tv
@@ -317,6 +319,7 @@ services:
     networks:
       - web_tier
     volumes:
+      - ./config/bazarr-init-script.sh:/etc/cont-init.d/99-bazarr-init.sh #sets urlbase
       - ${CONFIG}/bazarr:/config/app
       - ${CONTENT}/media/tv:/data/media/tv
       - ${CONTENT}/media/anime:/data/media/anime
