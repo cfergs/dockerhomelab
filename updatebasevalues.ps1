@@ -55,18 +55,6 @@ If($AutheliaUpdate -and $DomainName -and $AutheliaEmail) {
 
 If($ConfigUpdates -and $DomainName) {
   Write-Host "Updating URL subdomains"
-  #update radarr
-  $msg = Get-Content $configfolder\radarr\config.xml 
-  $msg -Replace ("<UrlBase>*.*</UrlBase>","<UrlBase>/radarr</UrlBase>") | Set-Content $ConfigFolder\radarr\config.xml
-
-  #update sonarr
-  $msg = Get-Content $ConfigFolder\sonarr\config.xml 
-  $msg -Replace ("<UrlBase>*.*</UrlBase>","<UrlBase>/sonarr</UrlBase>") | Set-Content $ConfigFolder\sonarr\config.xml
-
-  #update bazarr
-  $msg = Get-Content $ConfigFolder\bazarr\config\config.ini 
-  $msg[3] = 'base_url = /subtitles/'
-  $msg | Set-Content $ConfigFolder\bazarr\config\config.ini
 
   #update lazylibrarian
   $msg = Get-Content $ConfigFolder\lazylibrarian\config.ini 
@@ -80,14 +68,6 @@ If($ConfigUpdates -and $DomainName) {
   $msg = Get-Content $ConfigFolder\mylar\mylar\config.ini 
   $msg -Replace ("http_root*.*","http_root = /comics") | Set-Content $ConfigFolder\mylar\mylar\config.ini
 
-  #update nzbhydra
-  $msg = Get-Content $ConfigFolder\nzbhydra2\nzbhydra.yml 
-  $msg -Replace ("urlBase:*.*",'urlBase: "/hydra2"') -Replace ("saveTorrentsTo:*.*",'saveTorrentsTo: "/data/downloads/blackhole"') | Set-Content $ConfigFolder\nzbhydra2\nzbhydra.yml
-
-  #update jackett
-  $msg = Get-Content $ConfigFolder\jackett\ServerConfig.json 
-  $msg -Replace ('"BasePathOverride":*.*','"BasePathOverride": "/jackett/",') -Replace ('"BlackholeDir":*.*','"BlackholeDir": "/data/downloads/blackhole",') | Set-Content $ConfigFolder\jackett\ServerConfig.json 
-
   #update sabnzbd
   #fixes:
   # 1. issue with page not loading due to non-whitelisting
@@ -95,12 +75,4 @@ If($ConfigUpdates -and $DomainName) {
   # 2..cont. + using different folders stops it conflicting with torrent downloads
   $msg = Get-Content $ConfigFolder\sabnzbd\sabnzbd.ini
   $msg -Replace("host_whitelist*.*","host_whitelist = $domainname,base.$domainname") -Replace ("download_dir*.*","download_dir = /data/downloads/usenet/incomplete") -Replace ("complete_dir*.*","complete_dir = /data/downloads/usenet/complete") | Set-Content $ConfigFolder\sabnzbd\sabnzbd.ini
-
-  #update transmission 
-  #fixes
-  # 1. issue with settings page not loading
-  # 2. sets correct download folder as container default hardcoded value is wrong
-  # 2..cont. + using different folders stops it conflicting with torrent downloads
-  $msg = Get-Content $ConfigFolder\transmission\settings.json
-  $msg -Replace ('"rpc-host-whitelist-enabled": true,','"rpc-host-whitelist-enabled": false,') -Replace ('"download-dir":*.*','"download-dir": "/data/downloads/torrents/complete",') -Replace ('"incomplete-dir":*.*','"incomplete-dir": "/data/downloads/torrents/incomplete",') | Set-Content $ConfigFolder\transmission\settings.json
 }

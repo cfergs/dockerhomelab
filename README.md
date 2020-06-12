@@ -19,6 +19,7 @@ Contains
 | Mylar         | https://DOMAIN/comics                                                      | comic downloader                        |
 | NZBHydra      | https://DOMAIN/hydra2 && https://BASIC_DOMAIN.DOMAIN/hydra2                | search multiple usenet indexers at once |
 | Jackett       | https://DOMAIN/jackett && https://BASIC_SUBDOMAIN.DOMAIN/jackett           | search multiple torrent sites at once   |
+| Calibre-Web       | https://calibre.DOMAIN                                                 | Organize ebook libraries   |
 | SABnzbd       | https://DOMAIN/sabnzbd && https://BASIC_SUBDOMAIN.DOMAIN/sabnzbd           | download from usenet                    |
 | Transmission  | https://DOMAIN/transmission && https://BASIC_SUBDOMAIN.DOMAIN/transmission | download torrents                       |
 
@@ -50,6 +51,7 @@ For an example where i have the website name of example.com
   BASICAUTH_SUBDOMAIN=basic
   NORDVPN_USERNAME= bob@bob.com
   NORDVPN_PASSWORD= PASSWORD
+  COMICVINE_API=create an account from https://comicvine.gamespot.com/api/. Needed for mylar
   ```
 
 3. OpenLDAP

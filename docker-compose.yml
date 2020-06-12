@@ -248,6 +248,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+      - BASE_URL=/radarr
+      - CONFIG_FILE=/config/app/config.xml
     networks:
       - web_tier
       - download_tier
@@ -281,6 +283,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+      - BASE_URL=/sonarr
+      - CONFIG_FILE=/config/app/config.xml
     networks:
       - web_tier
       - download_tier
@@ -316,6 +320,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+      - BASE_URL=/subtitles/
+      - CONFIG_FILE=/config/app/config/config.ini
     networks:
       - web_tier
     volumes:
@@ -367,13 +373,19 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+      - BASE_URL=/comics
+      - COMICVINE_APIKEY=${COMICVINE_APIKEY}
+      - COMIC_DIR=/data/media/comics
+      - CONFIG_FILE=/config/mylar/config.ini
     networks:
       - web_tier
       - download_tier
-    volumes: 
+    volumes:
+      #- ./config/mylar3-init-script.sh:/etc/cont-init.d/99-mylar-init.sh #sets urlbase 
+      - ./config/mylar3-init-script.sh:/config/custom-cont-init.d/99-mylar-init.sh
       - ${CONFIG}/mylar:/config
-      - ${CONTENT}/downloads:/data/downloads
-      - ${CONTENT}/media/comics:/comics
+      - ${CONTENT}/downloads:/downloads
+      - ${CONTENT}/media/comics:/data/media/comics
     labels:
       - traefik.docker.network=web_tier  
       #must set http_root value in config.ini to /comics otherwise won't work.
@@ -395,6 +407,8 @@ services:
     networks:
       - download_tier
     volumes:
+      - ./config/nzbhydra2-init-script.sh:/etc/cont-init.d/99-nzbhydra2-init.sh
+      #- ./config/test.sh:/etc/cont-init.d/99-nzbhydra2-init.sh
       - ${CONFIG}/nzbhydra2:/config/app
       - ${CONTENT}/downloads/blackhole:/data/downloads/blackhole #for torrent files. NZB files use sab API
     labels:
@@ -421,9 +435,13 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TIMEZONE}
+      - BASE_URL=/jackett
+      - TORRENT_BLACKHOLE=/data/downloads/blackhole
+      - CONFIG_FILE=/config/app/ServerConfig.json
     networks:
       - web_tier
     volumes: 
+      - ./config/jackett-init-script.sh:/etc/cont-init.d/99-jackett-init.sh
       - ${CONFIG}/jackett:/config/app
       - ${CONTENT}/downloads/blackhole:/data/downloads/blackhole
     labels:
@@ -511,7 +529,6 @@ services:
     networks:
       - download_tier
     volumes:
-      - ${CONFIG}/transmission:/config
       - ${CONTENT}/downloads/torrents:/data/downloads/torrents #keeps usenet and torrent downloads seperated
       # plus transmission makes its own completed & incomplete subfolders
       - ${CONTENT}/downloads/blackhole:/watch
@@ -535,4 +552,27 @@ services:
       - traefik.http.routers.transmission-api.service=transmission-api
       - traefik.http.services.transmission-api.loadbalancer.server.scheme=http
       - traefik.http.services.transmission-api.loadbalancer.server.port=9091
+    restart: always
+
+  calibre-web:
+    image: technosoft2000/calibre-web
+    container_name: calibre-web
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - CONTAINER_TIMEZONE=${TIMEZONE}
+      - USE_CONFIG_DIR=true
+    networks:
+      - web_tier
+    volumes:
+      - ${CONFIG}/calibre-web/config:/calibre-web/config
+      - ${CONTENT}/media/books:/books
+      - ${CONFIG}/calibre-web/logs:/calibre-web/logs
+    labels:
+      #sso redirect
+      - traefik.http.routers.calibre.rule=Host(`calibre.${DOMAIN}`)
+      - traefik.http.routers.calibre.entrypoints=websecure
+      - traefik.http.routers.calibre.tls.certresolver=letsencrypt
+      - traefik.http.routers.calibre.tls=true
+      - traefik.http.routers.calibre.middlewares=sso-redirect
     restart: always
