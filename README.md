@@ -55,14 +55,13 @@ For an example where i have the website name of example.com
   ```
 
 3. OpenLDAP
-   - duplicate file */ldap/ldap_template.env* as */ldap/ldap.env*
-   - update the passwords in */ldap/ldap.env* file
    - run PowerShell command with switches `updatebasevalues.ps1 -LDAPUpdate -DomainName your_domain.com` to create */ldap/00-startup.ldif* with correct domainname values
 
 4. Authelia
-   - duplicate file */authelia/authelia_template.env* as */authelia/authelia.env*
-   - update passwords in */authelia/authelia.env*
    - run PowerShell command with switches `updatebasevalues.ps1 -AutheliaUpdate -DomainName your_domain.com -AutheliaEmail youremail@gmail.com` to create */authelia/configuration.yml* with correct values
+
+5. Secrets
+   - populate the following secrets files *authelia-jwt*, *authelia-session*, *authelia-smtp*, *ldap-admin*, *ldap-config*, *ldap-ro* in */secrets/* 
 
 #### Step 3 - Run
 run `docker-compose up -d ` \
@@ -70,7 +69,7 @@ This will download all containers & create other folders where needed
 
 #### Step 4 - Modify values
 Some default values will need to be changed for your site to work.
-1. (if running windows) Start by running `updatebasevalues.ps1 -ConfigFolder configfoldertoppath -ConfigUpdates -DomainName your_domain.com` . This will change the domain url for many sites and grant access to sabnzbd & transmission. Otherwise good luck editing!
+1. (if running windows) Start by running `updatebasevalues.ps1 -ConfigFolder configfoldertoppath -ConfigUpdates -DomainName your_domain.com` . This will change the domain url for many sites and grant access to sabnzbd. Otherwise good luck editing!
 2. create users and admins group and user accounts in openldap (if not already) - if stuck for setting passwords connect to LDAPADMIN.exe tool using docker IP.
 3. ddclient \
 add values for your dynamic IP  \

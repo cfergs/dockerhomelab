@@ -41,6 +41,25 @@ networks:
       config:
         - subnet: 172.23.6.0/24
 
+secrets:
+  authelia-jwt:
+    file: ./secrets/authelia-jwt
+
+  authelia-smtp:
+    file: ./secrets/authelia-smtp
+  
+  authelia-session:
+    file: ./secrets/authelia-session
+
+  ldap-admin:
+    file: ./secrets/ldap-admin
+  
+  ldap-config:
+    file: ./secrets/ldap-config
+  
+  ldap-ro:
+    file: ./secrets/ldap-ro
+
 services:
 #automatically update containers      
   watchtower:
@@ -102,6 +121,10 @@ services:
   ldap:
     image: osixia/openldap:latest
     container_name: ldap
+    secrets:
+      - ldap-admin
+      - ldap-config
+      - ldap-ro
     command: 
       - --copy-service
     environment:
@@ -110,10 +133,11 @@ services:
       - LDAP_DOMAIN=${DOMAIN}
       - LDAP_READONLY_USER=true
       - LDAP_READONLY_USER_USERNAME=ldap-ro
+      - LDAP_ADMIN_PASSWORD_FILE=/run/secrets/ldap-admin
+      - LDAP_CONFIG_PASSWORD_FILE=/run/secrets/ldap-config
+      - LDAP_READONLY_USER_PASSWORD_FILE=/run/secrets/ldap-ro
     networks:
-        - database_tier
-    env_file:
-      - ./ldap/ldap.env
+      - database_tier
     volumes:
       - ${NONCOMPLIANTCONFIG}/ldap/db:/var/lib/ldap
       - ${NONCOMPLIANTCONFIG}/ldap/config:/etc/ldap/slapd.d
@@ -150,16 +174,23 @@ services:
   authelia:
     image: authelia/authelia:master
     container_name: authelia
+    secrets:
+      - authelia-jwt
+      - authelia-smtp
+      - authelia-session
+      - ldap-admin
     environment:
       - TZ=${TIMEZONE}
       #- NODE_TLS_REJECT_UNAUTHORIZED=0 #TESTING ONLY
-    env_file:
-      - ./authelia/authelia.env
+      - AUTHELIA_JWT_SECRET_FILE=/run/secrets/authelia-jwt
+      - AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE=/run/secrets/authelia-smtp
+      - AUTHELIA_SESSION_SECRET_FILE=/run/secrets/authelia-session
+      - AUTHELIA_AUTHENTICATION_BACKEND_LDAP_PASSWORD_FILE=/run/secrets/ldap-admin
     networks:
       - auth_tier
       - database_tier
     volumes:
-      - ./authelia/configuration.yml:/etc/authelia/configuration.yml
+      - ./authelia/configuration.yml:/config/configuration.yml
       - ${NONCOMPLIANTCONFIG}/authelia/db:/var/lib/authelia/
     labels:
       - traefik.docker.network=auth_tier
