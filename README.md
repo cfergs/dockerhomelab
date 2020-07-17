@@ -5,11 +5,11 @@ Contains
 
 | Application   | URLs                                                                       | Purpose                                 |
 |---------------|----------------------------------------------------------------------------|-----------------------------------------|
-| Portainer     | https://DOMAIN/portainer                                                   | Manage containers      |
+| Portainer     | https://DOMAIN/portainer                                                   | Manage containers                       |
 | Watchtower    | N/A                                                                        | Update containers to new versions       |
 | ddclient      | N/A                                                                        | update DNS A records with IP changes    |
 | OpenLDAP      | N/A                                                                        | single repository of user accounts      |
-| Traefik       | N/A                                                                        | Reverse Proxy                           |
+| Traefik       | https://DOMAIN/dashboard                                                   | Reverse Proxy                           |
 | Authelia      | https://AUTH_SUBDOMAIN.DOMAIN                                              | Single Signon frontend                  |
 | PHPLDAPADMIN  | https://DOMAIN/phpldapadmin                                                | web interface for openldap              |
 | Radarr        | https://DOMAIN/radarr && https://BASIC_SUBDOMAIN.DOMAIN/radarr             | Movie downloader                        |
@@ -19,7 +19,7 @@ Contains
 | Mylar         | https://DOMAIN/comics                                                      | comic downloader                        |
 | NZBHydra      | https://DOMAIN/hydra2 && https://BASIC_DOMAIN.DOMAIN/hydra2                | search multiple usenet indexers at once |
 | Jackett       | https://DOMAIN/jackett && https://BASIC_SUBDOMAIN.DOMAIN/jackett           | search multiple torrent sites at once   |
-| Calibre-Web       | https://calibre.DOMAIN                                                 | Organize ebook libraries   |
+| Calibre-Web   | https://calibre.DOMAIN                                                     | Organize ebook libraries                |
 | SABnzbd       | https://DOMAIN/sabnzbd && https://BASIC_SUBDOMAIN.DOMAIN/sabnzbd           | download from usenet                    |
 | Transmission  | https://DOMAIN/transmission && https://BASIC_SUBDOMAIN.DOMAIN/transmission | download torrents                       |
 
