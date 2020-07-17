@@ -15,46 +15,32 @@ objectclass: organizationalunit
 #create users
 dn: cn=user1,ou=users,dc=example,dc=com
 objectClass: inetOrgPerson
-objectClass: person
-objectClass: organizationalPerson
-objectClass: posixAccount
 objectClass: top
-uid: user1
-uidNumber: 70000
-gidNumber: 70001
-homeDirectory: /home/user1
-givenName: User
-sn: 1
-displayName: User 1
 cn: user1
+sn: 1
+uid: user1
+displayName: User 1
 mail: user1@example.com
 
 dn: cn=user2,ou=users,dc=example,dc=com
 objectClass: inetOrgPerson
-objectClass: person
-objectClass: organizationalPerson
-objectClass: posixAccount
 objectClass: top
-uid: user2
-uidNumber: 70002
-gidNumber: 70003
-homeDirectory: /home/user2
-givenName: User
-sn: 2
-displayName: User 2
 cn: user2
+sn: 2
+uid: user2
+displayName: User 2
 mail: user2@example.com
 
 #create admin group
 dn: cn=admins,ou=groups,dc=example,dc=com
-objectClass: groupOfUniqueNames
+objectClass: groupofNames
 cn: admins
 description: admins
-uniqueMember: cn=user1,ou=users,dc=example,dc=com
+Member: cn=user1,ou=users,dc=example,dc=com
 
 #create users group
 dn: cn=users,ou=groups,dc=example,dc=com
-objectClass: groupOfUniqueNames
+objectClass: groupofNames
 cn: users
 description: users
-uniqueMember: cn=user2,ou=users,dc=example,dc=com
+Member: cn=user2,ou=users,dc=example,dc=com

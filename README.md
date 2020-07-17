@@ -5,6 +5,7 @@ Contains
 
 | Application   | URLs                                                                       | Purpose                                 |
 |---------------|----------------------------------------------------------------------------|-----------------------------------------|
+| Portainer     | https://DOMAIN/portainer                                                   | Manage containers      |
 | Watchtower    | N/A                                                                        | Update containers to new versions       |
 | ddclient      | N/A                                                                        | update DNS A records with IP changes    |
 | OpenLDAP      | N/A                                                                        | single repository of user accounts      |
@@ -18,6 +19,7 @@ Contains
 | Mylar         | https://DOMAIN/comics                                                      | comic downloader                        |
 | NZBHydra      | https://DOMAIN/hydra2 && https://BASIC_DOMAIN.DOMAIN/hydra2                | search multiple usenet indexers at once |
 | Jackett       | https://DOMAIN/jackett && https://BASIC_SUBDOMAIN.DOMAIN/jackett           | search multiple torrent sites at once   |
+| Calibre-Web       | https://calibre.DOMAIN                                                 | Organize ebook libraries   |
 | SABnzbd       | https://DOMAIN/sabnzbd && https://BASIC_SUBDOMAIN.DOMAIN/sabnzbd           | download from usenet                    |
 | Transmission  | https://DOMAIN/transmission && https://BASIC_SUBDOMAIN.DOMAIN/transmission | download torrents                       |
 
@@ -33,12 +35,12 @@ Contains
    - Get UID (PUID) and GID (PGID) of user. cmd: *id username*. Needed for .env file
 
 2. Docker \
-Update values as appropriate in file *.env*   \
+Duplicate .env_template as .env
+Update values as appropriate \
 For an example where i have the website name of example.com
   ```
   CONFIG=/mnt/config       
-  DOWNLOAD=/mnt/download
-  MEDIA=/mnt/media           
+  CONTENT=/mnt/data          
   PUID=1000                     
   PGID=1000                     
   DOMAIN=example.com            
@@ -47,22 +49,19 @@ For an example where i have the website name of example.com
   BASICAUTH_USER=basicuser      
   BASICAUTH_PASSWORD="encrypted password generated from https://www.htaccesstools.com/htpasswd-generator/"
   BASICAUTH_SUBDOMAIN=basic
+  NORDVPN_USERNAME= bob@bob.com
+  NORDVPN_PASSWORD= PASSWORD
+  COMICVINE_API=create an account from https://comicvine.gamespot.com/api/. Needed for mylar
   ```
 
 3. OpenLDAP
-   - update the passwords in */ldap/ldap.env* file
-   - update */ldap/00-startup.ldif* to change domain from example.com to domain you wish to use
+   - run PowerShell command with switches `updatebasevalues.ps1 -LDAPUpdate -DomainName your_domain.com` to create */ldap/00-startup.ldif* with correct domainname values
 
 4. Authelia
-   - Rename */authelia/configuration_template.yml* to *configuration.yml*
-   - In file update values of
-     - jwt_secret
-     - base_dn
-     - user
-     - password
-     - secret:domain
-     - update domains (in rules)
-   - Modify domain rules as required
+   - run PowerShell command with switches `updatebasevalues.ps1 -AutheliaUpdate -DomainName your_domain.com -AutheliaEmail youremail@gmail.com` to create */authelia/configuration.yml* with correct values
+
+5. Secrets
+   - populate the following secrets files *authelia-jwt*, *authelia-session*, *authelia-smtp*, *ldap-admin*, *ldap-config*, *ldap-ro* in */secrets/* 
 
 #### Step 3 - Run
 run `docker-compose up -d ` \
@@ -70,10 +69,9 @@ This will download all containers & create other folders where needed
 
 #### Step 4 - Modify values
 Some default values will need to be changed for your site to work.
-1. (if running windows) Start by running updatebasevalues.ps1. This will change the domain url for many sites and grant access to sabnzbd & transmission. Otherwise good luck editing!
-2. Login to Bazarr locally via http://localhost:6767 and update values accordingly
-3. create users and admins group and user accounts in openldap (if not already) - if stuck for setting passwords connect to LDAPADMIN.exe tool using docker IP.
-4. ddclient \
+1. (if running windows) Start by running `updatebasevalues.ps1 -ConfigFolder configfoldertoppath -ConfigUpdates -DomainName your_domain.com` . This will change the domain url for many sites and grant access to sabnzbd. Otherwise good luck editing!
+2. create users and admins group and user accounts in openldap (if not already) - if stuck for setting passwords connect to LDAPADMIN.exe tool using docker IP.
+3. ddclient \
 add values for your dynamic IP  \
 for example if you were using namecheap and updating records for example.com,auth.example.com and basic.example.com it would be
 
