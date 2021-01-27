@@ -45,6 +45,9 @@ secrets:
   portainer-admin:
     file: ./secrets/portainer-admin
   
+  cloudflare-ddns-api:
+    file: ./secrets/cloudflare-ddns-api
+  
   authelia-jwt:
     file: ./secrets/authelia-jwt
 
@@ -112,17 +115,19 @@ services:
 
 #update dns A records with IP changes
 #Make sure to update ddclient.conf with DNS provider settings
-  ddclient:
-    image: linuxserver/ddclient
-    container_name: ddclient
+  cloudflare-ddns:
+    image: oznu/cloudflare-ddns
+    container_name: cloudflare-ddns
+    secrets:
+      - cloudflare-ddns-api
     environment:
       - PUID=${OTHER_PID}
       - PGID=${OTHER_PID}
       - TZ=${TIMEZONE}
+      - ZONE=${DOMAIN}
+      - API_KEY_FILE=/run/secrets/cloudflare-ddns-api
     networks:
       - mgmt_tier
-    volumes:
-      - ${CONFIG}/ddclient:/config
     labels:
       - traefik.enable=false #dump less stuff into logs if you debug
     restart: unless-stopped
