@@ -42,6 +42,9 @@ networks:
         - subnet: 172.23.6.0/24
 
 secrets:
+  portainer-admin:
+    file: ./secrets/portainer-admin
+  
   authelia-jwt:
     file: ./secrets/authelia-jwt
 
@@ -67,6 +70,8 @@ services:
     image: containrrr/watchtower
     container_name: watchtower
     environment:
+      - PUID=${OTHER_PID}
+      - PGID=${OTHER_PID}
       - TZ=${TIMEZONE}
     networks:
       - mgmt_tier
@@ -82,10 +87,15 @@ services:
   portainer:
     image: portainer/portainer
     container_name: portainer
+    secrets:
+      - portainer-admin
     environment: 
-      - PUID=${PUID}
-      - PGID=${PGID}  
+      - PUID=${PORTAINER_PID}
+      - PGID=${PORTAINER_PID} 
       - TZ=${TIMEZONE}
+    command:  
+    - --admin-password-file=/run/secrets/portainer-admin
+    - --host=unix:///var/run/docker.sock
     networks:
       - mgmt_tier
     volumes: 
@@ -106,8 +116,8 @@ services:
     image: linuxserver/ddclient
     container_name: ddclient
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}  
+      - PUID=${OTHER_PID}
+      - PGID=${OTHER_PID}
       - TZ=${TIMEZONE}
     networks:
       - mgmt_tier
@@ -136,11 +146,13 @@ services:
       - LDAP_ADMIN_PASSWORD_FILE=/run/secrets/ldap-admin
       - LDAP_CONFIG_PASSWORD_FILE=/run/secrets/ldap-config
       - LDAP_READONLY_USER_PASSWORD_FILE=/run/secrets/ldap-ro
+      - LDAP_OPENLDAP_UID=${LDAP_PID}
+      - LDAP_OPENLDAP_GID=${LDAP_PID} 
     networks:
       - database_tier
     volumes:
-      - ${NONCOMPLIANTCONFIG}/ldap/db:/var/lib/ldap
-      - ${NONCOMPLIANTCONFIG}/ldap/config:/etc/ldap/slapd.d
+      - ${CONFIG}/ldap/db:/var/lib/ldap
+      - ${CONFIG}/ldap/config:/etc/ldap/slapd.d
       #pre-seed initial users. Optional. Won't override existing objects
       - ./ldap/00-startup.ldif:/container/service/slapd/assets/config/bootstrap/ldif/00-startup.ldif
     labels:
@@ -152,6 +164,8 @@ services:
     image: osixia/phpldapadmin
     container_name: ldapadmin
     environment:
+      - PUID=${OTHER_PID}
+      - PGID=${OTHER_PID}      
       - TZ=${TIMEZONE}
       - PHPLDAPADMIN_LDAP_HOSTS=ldap
       - PHPLDAPADMIN_SERVER_PATH=/phpldapadmin
@@ -180,6 +194,8 @@ services:
       - authelia-session
       - ldap-admin
     environment:
+      - PUID=${AUTHELIA_PID}
+      - PGID=${AUTHELIA_PID}
       - TZ=${TIMEZONE}
       #- NODE_TLS_REJECT_UNAUTHORIZED=0 #TESTING ONLY
       - AUTHELIA_JWT_SECRET_FILE=/run/secrets/authelia-jwt
@@ -191,7 +207,7 @@ services:
       - database_tier
     volumes:
       - ./authelia/configuration.yml:/config/configuration.yml
-      - ${NONCOMPLIANTCONFIG}/authelia/db:/var/lib/authelia/
+      - ${CONFIG}/authelia/db:/var/lib/authelia/
     labels:
       - traefik.docker.network=auth_tier
       - traefik.http.routers.auth.rule=Host(`${SSOAUTH_SUBDOMAIN}.${DOMAIN}`)
@@ -206,6 +222,8 @@ services:
     image: traefik
     container_name: traefik
     environment:
+      - PUID=${TRAEFIK_PID}
+      - PGID=${TRAEFIK_PID}
       - TZ=${TIMEZONE}
     command:
       #- --api.insecure=true #troubleshooting
@@ -227,7 +245,7 @@ services:
       - auth_tier
       - web_tier
       - download_tier
-    volumes: 
+    volumes:
       - letsencrypt:/letsencrypt/
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
@@ -257,7 +275,7 @@ services:
       - traefik.http.routers.redirs.middlewares=redirect-to-https
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
       # 3. Create sso-auth redirect
-      - traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:9091/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/#/
+      - traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:9091/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/
       - traefik.http.middlewares.sso-redirect.forwardauth.trustforwardheader=true
       # 4. Basic auth authentication
       - traefik.http.middlewares.basicauth.basicauth.users=${BASICAUTH_USER}:${BASICAUTH_PASSWORD}
@@ -276,8 +294,8 @@ services:
     image: hotio/radarr
     container_name: radarr
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - PUID=${MEDIA_PID}
+      - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
       - BASE_URL=/radarr
       - CONFIG_FILE=/config/app/config.xml
@@ -311,8 +329,8 @@ services:
     image: hotio/sonarr
     container_name: sonarr
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - PUID=${MEDIA_PID}
+      - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
       - BASE_URL=/sonarr
       - CONFIG_FILE=/config/app/config.xml
@@ -348,8 +366,8 @@ services:
     image: hotio/bazarr
     container_name: bazarr
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - PUID=${MEDIA_PID}
+      - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
       - BASE_URL=/subtitles/
       - CONFIG_FILE=/config/app/config/config.ini
@@ -376,8 +394,8 @@ services:
     image: linuxserver/lazylibrarian
     container_name: lazylibrarian
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - PUID=${MEDIA_PID}
+      - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
     networks:
       - web_tier
@@ -401,8 +419,8 @@ services:
     image: linuxserver/mylar
     container_name: mylar
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - PUID=${MEDIA_PID}
+      - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
       - BASE_URL=/comics
       - COMICVINE_APIKEY=${COMICVINE_APIKEY}
@@ -432,8 +450,8 @@ services:
     image: hotio/nzbhydra2
     container_name: nzbhydra
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - PUID=${MEDIA_PID}
+      - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
     networks:
       - download_tier
@@ -463,8 +481,8 @@ services:
     image: hotio/jackett
     container_name: jackett
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - PUID=${MEDIA_PID}
+      - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
       - BASE_URL=/jackett
       - TORRENT_BLACKHOLE=/data/downloads/blackhole
@@ -496,8 +514,8 @@ services:
     image: hotio/sabnzbd
     container_name: sabnzbd
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - PUID=${MEDIA_PID}
+      - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
     networks:
       - download_tier
@@ -536,8 +554,8 @@ services:
       - 8.8.8.8
       - 8.8.4.4
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - PUID=${MEDIA_PID}
+      - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
       - CREATE_TUN_DEVICE=true
       - LOCAL_NETWORK=172.23.6.0/24
@@ -589,8 +607,8 @@ services:
     image: technosoft2000/calibre-web
     container_name: calibre-web
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - PUID=${MEDIA_PID}
+      - PGID=${MEDIA_PID}
       - CONTAINER_TIMEZONE=${TIMEZONE}
       - USE_CONFIG_DIR=true
     networks:
