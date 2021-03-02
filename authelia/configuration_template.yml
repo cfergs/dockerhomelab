@@ -6,8 +6,11 @@
 host: 0.0.0.0
 port: 9091
 
+server:
+  path: authelia
+
 # Level of verbosity for logs: info, debug, trace
-log_level: debug
+log_level: info
 ## File path where the logs will be written. If not set logs are written to stdout.
 # log_file_path: /var/log/authelia
 
@@ -174,9 +177,6 @@ access_control:
   default_policy: deny
 
   rules:
-    - domain: auth.example.com
-      policy: one_factor
-
     - domain: example.com
       subject: "group:users"
       resources: 

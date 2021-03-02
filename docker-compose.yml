@@ -215,7 +215,7 @@ services:
       - ${CONFIG}/authelia/db:/var/lib/authelia/
     labels:
       - traefik.docker.network=auth_tier
-      - traefik.http.routers.auth.rule=Host(`${SSOAUTH_SUBDOMAIN}.${DOMAIN}`)
+      - traefik.http.routers.auth.rule=Host(`${DOMAIN}`)&&PathPrefix(`/authelia`)
       - traefik.http.routers.auth.entrypoints=websecure
       - traefik.http.routers.auth.tls.certresolver=letsencrypt
       - traefik.http.routers.auth.tls=true
@@ -280,7 +280,7 @@ services:
       - traefik.http.routers.redirs.middlewares=redirect-to-https
       - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
       # 3. Create sso-auth redirect
-      - traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:9091/api/verify?rd=https://${SSOAUTH_SUBDOMAIN}.${DOMAIN}/
+      - traefik.http.middlewares.sso-redirect.forwardauth.address=http://authelia:9091/authelia/api/verify?rd=https://${DOMAIN}/authelia/
       - traefik.http.middlewares.sso-redirect.forwardauth.trustforwardheader=true
       # 4. Basic auth authentication
       - traefik.http.middlewares.basicauth.basicauth.users=${BASICAUTH_USER}:${BASICAUTH_PASSWORD}

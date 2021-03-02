@@ -10,7 +10,7 @@ Contains
 | Cloudfront    | N/A                                                            | update DNS A records with IP changes    |
 | OpenLDAP      | N/A                                                            | single repository of user accounts      |
 | Traefik       | N/A                                                            | Reverse Proxy                           |
-| Authelia      | https://AUTH_SUBDOMAIN.DOMAIN                                  | Single Signon frontend                  |
+| Authelia      | https://DOMAIN/authelia                                        | Single Signon frontend                  |
 | PHPLDAPADMIN  | https://DOMAIN/phpldapadmin                                    | web interface for openldap              |
 | Radarr        | https://DOMAIN/radarr && https://BASIC_SUBDOMAIN.DOMAIN/radarr | Movie downloader                        |
 | Sonarr        | https://DOMAIN/sonarr && https://BASIC_SUBDOMAIN.DOMAIN/sonarr | TV show downloader                      |
@@ -47,8 +47,7 @@ For an example where i have the website name of example.com
   OTHER_PID=1800
   MEDIA_PID=1000                    
   DOMAIN=example.com            
-  EMAIL=admin@example.com       
-  SSOAUTH_SUBDOMAIN=auth        
+  EMAIL=admin@example.com     
   BASICAUTH_USER=basicuser      
   BASICAUTH_PASSWORD="encrypted password generated from https://www.htaccesstools.com/htpasswd-generator/"
   BASICAUTH_SUBDOMAIN=basic
