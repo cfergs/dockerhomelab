@@ -114,7 +114,6 @@ services:
     restart: unless-stopped
 
 #update dns A records with IP changes
-#Make sure to update ddclient.conf with DNS provider settings
   cloudflare-ddns:
     image: oznu/cloudflare-ddns
     container_name: cloudflare-ddns
@@ -623,10 +622,12 @@ services:
       - ${CONTENT}/media/books:/books
       - ${CONFIG}/calibre-web/logs:/calibre-web/logs
     labels:
-      #sso redirect
-      - traefik.http.routers.calibre.rule=Host(`calibre.${DOMAIN}`)
+      - traefik.http.routers.calibre.rule=Host(`${DOMAIN}`)&&PathPrefix(`/calibre`)
       - traefik.http.routers.calibre.entrypoints=websecure
       - traefik.http.routers.calibre.tls.certresolver=letsencrypt
       - traefik.http.routers.calibre.tls=true
-      - traefik.http.routers.calibre.middlewares=sso-redirect
+      - traefik.http.middlewares.calibre-header.headers.customrequestheaders.X-Script-Name=/calibre
+      #strip-prefixes needed to remove /calibre. Otherwise wont play nice.
+      - traefik.http.middlewares.calibre-chain.chain.middlewares=sso-redirect,strip-prefix-1,strip-prefix-2,calibre-header
+      - traefik.http.routers.calibre.middlewares=calibre-chain
     restart: always
