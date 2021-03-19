@@ -211,7 +211,6 @@ services:
       - database_tier
     volumes:
       - ./authelia/configuration.yml:/config/configuration.yml
-      - ${CONFIG}/authelia/db:/var/lib/authelia/
     labels:
       - traefik.docker.network=auth_tier
       - traefik.http.routers.auth.rule=Host(`${DOMAIN}`)&&PathPrefix(`/authelia`)
