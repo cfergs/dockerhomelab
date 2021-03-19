@@ -302,13 +302,13 @@ services:
       - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
       - BASE_URL=/radarr
-      - CONFIG_FILE=/config/app/config.xml
+      - CONFIG_FILE=/config/config.xml
     networks:
       - web_tier
       - download_tier
     volumes:
       - ./config/radarr-init-script.sh:/etc/cont-init.d/99-radarr-init.sh #sets urlbase
-      - ${CONFIG}/radarr:/config/app
+      - ${CONFIG}/radarr:/config
       - ${CONTENT}/downloads:/data/downloads
       - ${CONTENT}/media/movies:/data/media/movies
     labels:
@@ -337,13 +337,13 @@ services:
       - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
       - BASE_URL=/sonarr
-      - CONFIG_FILE=/config/app/config.xml
+      - CONFIG_FILE=/config/config.xml
     networks:
       - web_tier
       - download_tier
     volumes:
       - ./config/sonarr-init-script.sh:/etc/cont-init.d/99-sonarr-init.sh #sets urlbase
-      - ${CONFIG}/sonarr:/config/app
+      - ${CONFIG}/sonarr:/config
       - ${CONTENT}/downloads:/data/downloads
       - ${CONTENT}/media/tv:/data/media/tv
       - ${CONTENT}/media/cartoons:/data/media/cartoons
@@ -374,12 +374,12 @@ services:
       - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
       - BASE_URL=/subtitles/
-      - CONFIG_FILE=/config/app/config/config.ini
+      - CONFIG_FILE=/config/config/config.ini
     networks:
       - web_tier
     volumes:
       - ./config/bazarr-init-script.sh:/etc/cont-init.d/99-bazarr-init.sh #sets urlbase
-      - ${CONFIG}/bazarr:/config/app
+      - ${CONFIG}/bazarr:/config
       - ${CONTENT}/media/tv:/data/media/tv
       - ${CONTENT}/media/anime:/data/media/anime
       - ${CONTENT}/media/movies:/data/media/movies
@@ -462,7 +462,7 @@ services:
     volumes:
       - ./config/nzbhydra2-init-script.sh:/etc/cont-init.d/99-nzbhydra2-init.sh
       #- ./config/test.sh:/etc/cont-init.d/99-nzbhydra2-init.sh
-      - ${CONFIG}/nzbhydra2:/config/app
+      - ${CONFIG}/nzbhydra2:/config
       - ${CONTENT}/downloads/blackhole:/data/downloads/blackhole #for torrent files. NZB files use sab API
     labels:
       #must set urlBase value to "/hydra2" in nzbhydra.yml otherwise won't work.
@@ -490,12 +490,12 @@ services:
       - TZ=${TIMEZONE}
       - BASE_URL=/jackett
       - TORRENT_BLACKHOLE=/data/downloads/blackhole
-      - CONFIG_FILE=/config/app/ServerConfig.json
+      - CONFIG_FILE=/config/ServerConfig.json
     networks:
       - web_tier
     volumes: 
       - ./config/jackett-init-script.sh:/etc/cont-init.d/99-jackett-init.sh
-      - ${CONFIG}/jackett:/config/app
+      - ${CONFIG}/jackett:/config
       - ${CONTENT}/downloads/blackhole:/data/downloads/blackhole
     labels:
       #must set BasePathOverride value to "/jackett/" in ServerConfig.json otherwise won't work.
@@ -524,7 +524,7 @@ services:
     networks:
       - download_tier
     volumes:
-      - ${CONFIG}/sabnzbd:/config/app
+      - ${CONFIG}/sabnzbd:/config
       - ${CONTENT}/downloads/usenet:/data/downloads/usenet
       #26/04/2020 you must change the complete/incomplete locations in the sabnzbd.ini 
       #otherwise will default to storing in /configs/Downloads/
