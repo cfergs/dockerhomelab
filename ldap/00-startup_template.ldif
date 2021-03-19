@@ -1,46 +1,46 @@
-# ldapmodify -a -x -h localhost -p 389 -D "cn=admin,dc=example,dc=com" -f 00-startup.ldif -w <<password>> -c
+# ldapmodify -a -x -h localhost -p 389 -D "cn=admin,{{ LDAP_BASE_DN }}" -f 00-startup.ldif -w <<password>> -c
 # Could generate fake data : http://ldapwiki.com/wiki/LDIF%20Generator
 
 #create users and groups OU
-dn: ou=users, dc=example,dc=com
+dn: ou=users,{{ LDAP_BASE_DN }}
 ou: users
 description: All people in organisation
 objectclass: organizationalunit
 
-dn: ou=groups, dc=example,dc=com
+dn: ou=groups,{{ LDAP_BASE_DN }}
 ou: groups
 description: All Groups in organisation
 objectclass: organizationalunit
 
 #create users
-dn: cn=user1,ou=users,dc=example,dc=com
+dn: cn=user1,ou=users,{{ LDAP_BASE_DN }}
 objectClass: inetOrgPerson
 objectClass: top
 cn: user1
 sn: 1
 uid: user1
 displayName: User 1
-mail: user1@example.com
+mail: user1@{{ LDAP_DOMAIN }}
 
-dn: cn=user2,ou=users,dc=example,dc=com
+dn: cn=user2,ou=users,{{ LDAP_BASE_DN }}
 objectClass: inetOrgPerson
 objectClass: top
 cn: user2
 sn: 2
 uid: user2
 displayName: User 2
-mail: user2@example.com
+mail: user2@{{ LDAP_DOMAIN }}
 
 #create admin group
-dn: cn=admins,ou=groups,dc=example,dc=com
+dn: cn=admins,ou=groups,{{ LDAP_BASE_DN }}
 objectClass: groupofNames
 cn: admins
 description: admins
-Member: cn=user1,ou=users,dc=example,dc=com
+Member: cn=user1,ou=users,{{ LDAP_BASE_DN }}
 
 #create users group
-dn: cn=users,ou=groups,dc=example,dc=com
+dn: cn=users,ou=groups,{{ LDAP_BASE_DN }}
 objectClass: groupofNames
 cn: users
 description: users
-Member: cn=user2,ou=users,dc=example,dc=com
+Member: cn=user2,ou=users,{{ LDAP_BASE_DN }}

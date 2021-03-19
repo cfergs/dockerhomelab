@@ -57,7 +57,7 @@ For an example where i have the website name of example.com
   ```
 
 3. OpenLDAP
-   - run PowerShell command with switches `updatebasevalues.ps1 -LDAPUpdate -DomainName your_domain.com` to create */ldap/00-startup.ldif* with correct domainname values
+   - Rename */ldap/00-startup_template.ldif* to *00-startup.ldif*
 
 4. Authelia
    - run PowerShell command with switches `updatebasevalues.ps1 -AutheliaUpdate -DomainName your_domain.com -AutheliaEmail youremail@gmail.com` to create */authelia/configuration.yml* with correct values
