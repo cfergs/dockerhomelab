@@ -19,7 +19,6 @@ if [ -f "$FILE" ]; then
   if [ $? -eq 0 ]; then
     echo "updated urlbase to $URL"
   fi
-  #sed -i '/saveTorrentsTo: null$/,${s||saveTorrentsTo: "\/data\/downloads\/blackhole"|;b};$q1' $FILE
     
   if [ ${TORRENT_BLACKHOLE} ]; then
     sed -i '/saveTorrentsTo: null$/,${s||saveTorrentsTo: "'"${TORRENT_BLACKHOLE}"'"|;b};$q1' $FILE

@@ -42,10 +42,10 @@ Param(
 )
 
 #update openldap config to be specific to your site
-If($LDAPUpdate -and $DomainName) {
-  Write-Host "Updating Domain Name in LDAP config file"
-  (Get-Content ".\ldap\00-startup_template.ldif").Replace("dc=example,dc=com","dc=$($DomainName.Split('.')[0]),dc=$($DomainName.Split('.')[1])").Replace("example.com","$DomainName") | Set-Content ".\ldap\00-startup.ldif"
-}
+#If($LDAPUpdate -and $DomainName) {
+#  Write-Host "Updating Domain Name in LDAP config file"
+#  (Get-Content ".\ldap\00-startup_template.ldif").Replace("dc=example,dc=com","dc=$($DomainName.Split('.')[0]),dc=$($DomainName.Split('.')[1])").Replace("example.com","$DomainName") | Set-Content ".\ldap\00-startup.ldif"
+#}
 
 If($AutheliaUpdate -and $DomainName -and $AutheliaEmail) {
   Write-Host "** Updating authelia configuration file **"
@@ -65,14 +65,14 @@ If($ConfigUpdates -and $DomainName) {
   }
 
   #update mylar
-  $msg = Get-Content $ConfigFolder\mylar\mylar\config.ini 
-  $msg -Replace ("http_root*.*","http_root = /comics") | Set-Content $ConfigFolder\mylar\mylar\config.ini
+  #$msg = Get-Content $ConfigFolder\mylar\mylar\config.ini 
+  #$msg -Replace ("http_root*.*","http_root = /comics") | Set-Content $ConfigFolder\mylar\mylar\config.ini
 
   #update sabnzbd
   #fixes:
   # 1. issue with page not loading due to non-whitelisting
   # 2. sets correct download folders - container doesnt set this as sabnzbd.ini created AFTER container. 
   # 2..cont. + using different folders stops it conflicting with torrent downloads
-  $msg = Get-Content $ConfigFolder\sabnzbd\sabnzbd.ini
-  $msg -Replace("host_whitelist*.*","host_whitelist = $domainname,base.$domainname") -Replace ("download_dir*.*","download_dir = /data/downloads/usenet/incomplete") -Replace ("complete_dir*.*","complete_dir = /data/downloads/usenet/complete") | Set-Content $ConfigFolder\sabnzbd\sabnzbd.ini
+  #$msg = Get-Content $ConfigFolder\sabnzbd\sabnzbd.ini
+  #$msg -Replace("host_whitelist*.*","host_whitelist = $domainname,base.$domainname") -Replace ("download_dir*.*","download_dir = /data/downloads/usenet/incomplete") -Replace ("complete_dir*.*","complete_dir = /data/downloads/usenet/complete") | Set-Content $ConfigFolder\sabnzbd\sabnzbd.ini
 }

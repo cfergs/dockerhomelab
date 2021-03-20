@@ -1,7 +1,6 @@
 #!/usr/bin/with-contenv bash
 
 FILE=${CONFIG_FILE}
-
 if [ ! ${BASE_URL} ]; then
   URL=/bazarr
 else
@@ -14,8 +13,10 @@ if [ ! -f "$FILE" ]; then
 fi
 
 if [ -f "$FILE" ]; then
-    if head -n4 $FILE | grep "base_url = /$"; then #checking only 4th line. sed is a pain to do this and all the other stuff im checking
-        sed -i '/base_url = \/$/,${4s||base_url = '"$URL"'|;b};$q1' $FILE
+    if head -n4 $FILE | grep "base_url = $"; then #checking only 4th line. sed is a pain to do this and all the other stuff im checking
+        echo "installing sed"
+        apk add --no-cache sed
+        sed -i '/base_url = $/,${s||base_url = '"${BASE_URL}"'|;b};$q1' $FILE
         if [ $? -eq 0 ]; then
             echo "updated baseurl to $URL"
         fi

@@ -29,17 +29,18 @@ if [ -f "$FILE" ]; then
       echo "updated baseurl to $URL"
     fi
   
-  if [ ${COMICVINE_APIKEY} ]; then
-     sed -i '/comicvine_api = None$/,${s||comicvine_api = '"${COMICVINE_APIKEY}"'|;b};$q1' $FILE
+  if [ ${COMICVINE_API_KEY_FILE} ]; then
+    COMICVINE_APIKEY=$(cat $COMICVINE_API_KEY_FILE)
+    sed -i '/comicvine_api = None$/,${s||comicvine_api = '"${COMICVINE_APIKEY}"'|;b};$q1' $FILE
     if [ $? -eq 0 ]; then
       echo "updated comicvine api key"
     fi
   fi
 
   if [ ${COMIC_DIR} ]; then
-    sed -i '/comic_dir = None$/,${s||comic_dir = '"${COMIC_DIR}"'|;b};$q1' $FILE
+    sed -i '/destination_dir = None$/,${s||comic_dir = '"${COMIC_DIR}"'|;b};$q1' $FILE
     if [ $? -eq 0 ]; then
-      echo "updated comic_dir to ${COMIC_DIR}"
+      echo "updated destination_dir to ${COMIC_DIR}"
     fi
   fi
 

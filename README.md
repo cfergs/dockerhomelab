@@ -53,7 +53,6 @@ For an example where i have the website name of example.com
   BASICAUTH_SUBDOMAIN=basic
   NORDVPN_USERNAME= bob@bob.com
   NORDVPN_PASSWORD= PASSWORD
-  COMICVINE_API=create an account from https://comicvine.gamespot.com/api/. Needed for mylar
   ```
 
 3. OpenLDAP
@@ -63,7 +62,8 @@ For an example where i have the website name of example.com
    - run PowerShell command with switches `updatebasevalues.ps1 -AutheliaUpdate -DomainName your_domain.com -AutheliaEmail youremail@gmail.com` to create */authelia/configuration.yml* with correct values
 
 5. Secrets
-   - populate the following secrets files *authelia-jwt*, *authelia-session*, *authelia-smtp*, *ldap-admin*, *ldap-config*, *ldap-ro*, *portainer-admin*, *portainer-admin* in */secrets/* 
+   - populate the following secrets files *authelia-jwt*, *authelia-session*, *authelia-smtp*, *comicvine-api*, *ldap-admin*, *ldap-config*, *ldap-ro*, *portainer-admin*, *portainer-admin* in */secrets/* 
+   - *comicvine-api* - create an account from https://comicvine.gamespot.com/api/. Needed for mylar
 
 #### Step 3 - Run
 run `docker-compose up -d ` \
@@ -71,7 +71,7 @@ This will download all containers & create other folders where needed
 
 #### Step 4 - Modify values
 Some default values will need to be changed for your site to work.
-1. (if running windows) Start by running `updatebasevalues.ps1 -ConfigFolder configfoldertoppath -ConfigUpdates -DomainName your_domain.com` . This will change the domain url for many sites and grant access to sabnzbd. Otherwise good luck editing!
+1. (if running windows) Start by running `updatebasevalues.ps1 -ConfigFolder configfoldertoppath -ConfigUpdates -DomainName your_domain.com` .This will update lazylibrarian and authelia settings.
 2. create users and admins group and user accounts in openldap (if not already) - if stuck for setting passwords connect to LDAPADMIN.exe tool using docker IP.
 3. Cloudfront \
 In cloudfront Add CNAME entries for your subdomains and point them to your main domainname.

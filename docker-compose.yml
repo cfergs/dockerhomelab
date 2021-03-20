@@ -66,6 +66,9 @@ secrets:
   ldap-ro:
     file: ./secrets/ldap-ro
 
+  comicvine-api:
+    file: ./secrets/comicvine-api
+
 services:
 #automatically update containers      
   watchtower:
@@ -418,24 +421,25 @@ services:
     restart: unless-stopped
 
 #download comics
-  mylar:
-    image: linuxserver/mylar
-    container_name: mylar
+  mylar3:
+    image: hotio/mylar3
+    container_name: mylar3
+    secrets:
+      - comicvine-api
     environment:
       - PUID=${MEDIA_PID}
       - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
       - BASE_URL=/comics
-      - COMICVINE_APIKEY=${COMICVINE_APIKEY}
+      - COMICVINE_API_KEY_FILE=/run/secrets/comicvine-api
       - COMIC_DIR=/data/media/comics
-      - CONFIG_FILE=/config/mylar/config.ini
+      - CONFIG_FILE=/config/config.ini
     networks:
       - web_tier
       - download_tier
     volumes:
-      #- ./config/mylar3-init-script.sh:/etc/cont-init.d/99-mylar-init.sh #sets urlbase 
-      - ./config/mylar3-init-script.sh:/config/custom-cont-init.d/99-mylar-init.sh
-      - ${CONFIG}/mylar:/config
+      - ./config/mylar3-init-script.sh:/etc/cont-init.d/99-mylar3-init.sh #sets urlbase 
+      - ${CONFIG}/mylar3:/config
       - ${CONTENT}/downloads:/downloads
       - ${CONTENT}/media/comics:/data/media/comics
     labels:
@@ -449,18 +453,20 @@ services:
     restart: unless-stopped
 
 #search multiple usenet indexers at once
-  nzbhydra:
+  nzbhydra2:
     image: hotio/nzbhydra2
-    container_name: nzbhydra
+    container_name: nzbhydra2
     environment:
       - PUID=${MEDIA_PID}
       - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
+      - BASE_URL=/hydra2
+      - TORRENT_BLACKHOLE=/data/downloads/blackhole
+      - CONFIG_FILE=/config/nzbhydra.yml
     networks:
       - download_tier
     volumes:
       - ./config/nzbhydra2-init-script.sh:/etc/cont-init.d/99-nzbhydra2-init.sh
-      #- ./config/test.sh:/etc/cont-init.d/99-nzbhydra2-init.sh
       - ${CONFIG}/nzbhydra2:/config
       - ${CONTENT}/downloads/blackhole:/data/downloads/blackhole #for torrent files. NZB files use sab API
     labels:
@@ -520,9 +526,13 @@ services:
       - PUID=${MEDIA_PID}
       - PGID=${MEDIA_PID}
       - TZ=${TIMEZONE}
+      - PARENT_DOWNLOAD_PATH=/data/downloads/usenet
+      - DOMAIN_WHITELIST=${DOMAIN},${BASICAUTH_SUBDOMAIN}.${DOMAIN}
+      - CONFIG_FILE=/config/sabnzbd.ini
     networks:
       - download_tier
     volumes:
+      - ./config/sabnzbd-init-script.sh:/etc/cont-init.d/99-sabnzbd-init.sh
       - ${CONFIG}/sabnzbd:/config
       - ${CONTENT}/downloads/usenet:/data/downloads/usenet
       #26/04/2020 you must change the complete/incomplete locations in the sabnzbd.ini 
