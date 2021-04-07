@@ -40,6 +40,12 @@ networks:
     ipam:
       config:
         - subnet: 172.23.6.0/24
+  unifi:
+    name: unifi
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.23.7.0/24
 
 secrets:
   portainer-admin:
@@ -130,6 +136,29 @@ services:
       - API_KEY_FILE=/run/secrets/cloudflare-ddns-api
     networks:
       - mgmt_tier
+    labels:
+      - traefik.enable=false #dump less stuff into logs if you debug
+    restart: unless-stopped
+
+  unifi-controller:
+    image: jacobalberty/unifi
+    container_name: unifi
+    environment:
+      - TZ=${TIMEZONE}
+    init: true
+    user: unifi
+    networks:
+      - unifi
+    volumes:
+      - ${CONFIG}/unifi:/unifi/data
+    ports:
+      - 3478:3478/udp # STUN
+      - 6789:6789/tcp # Speed test
+      - 8080:8080/tcp # Device/ controller comm.
+      - 8443:8443/tcp # Controller GUI/API as seen in a web browser
+      - 8880:8880/tcp # HTTP portal redirection
+      - 8843:8843/tcp # HTTPS portal redirection
+      - 10001:10001/udp # AP discovery
     labels:
       - traefik.enable=false #dump less stuff into logs if you debug
     restart: unless-stopped

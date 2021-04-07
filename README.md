@@ -11,6 +11,7 @@ Contains
 | OpenLDAP      | N/A                                                            | single repository of user accounts      |
 | Traefik       | N/A                                                            | Reverse Proxy                           |
 | Authelia      | https://DOMAIN/authelia                                        | Single Signon frontend                  |
+| Unifi         | https://localhost:8443                                         | Unifi wireless controler                |
 | PHPLDAPADMIN  | https://DOMAIN/phpldapadmin                                    | web interface for openldap              |
 | Radarr        | https://DOMAIN/radarr && https://BASIC_SUBDOMAIN.DOMAIN/radarr | Movie downloader                        |
 | Sonarr        | https://DOMAIN/sonarr && https://BASIC_SUBDOMAIN.DOMAIN/sonarr | TV show downloader                      |
@@ -64,6 +65,9 @@ For an example where i have the website name of example.com
 5. Secrets
    - populate the following secrets files *authelia-jwt*, *authelia-session*, *authelia-smtp*, *comicvine-api*, *ldap-admin*, *ldap-config*, *ldap-ro*, *portainer-admin*, *portainer-admin* in */secrets/* 
    - *comicvine-api* - create an account from https://comicvine.gamespot.com/api/. Needed for mylar
+
+6. Unifi
+Logon to controller. Go under Settings -> Controller and then enter the IP address of the Docker host machine in "Controller Hostname/IP", and check the "Override inform host with controller hostname/IP". Save settings and restart UniFi Docker container.
 
 #### Step 3 - Run
 run `docker-compose up -d ` \
