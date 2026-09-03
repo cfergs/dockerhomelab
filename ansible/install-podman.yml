@@ -6,6 +6,7 @@
 
   vars:
     dockhand_image: docker.io/fnsys/dockhand:latest
+    dockhand_domain: dockhand.chickenwaffles.net
     podman_user: "{{ ansible_user }}"
 
   tasks:
@@ -156,6 +157,20 @@
       changed_when: false
       failed_when: false
 
+    - name: Check for mgmt_tier network
+      become: true
+      become_user: "{{ podman_user }}"
+      ansible.builtin.command: podman network inspect mgmt_tier
+      register: mgmt_network
+      changed_when: false
+      failed_when: false
+
+    - name: Create mgmt_tier network
+      become: true
+      become_user: "{{ podman_user }}"
+      ansible.builtin.command: podman network create mgmt_tier
+      when: mgmt_network.rc != 0
+
     - name: Create dockhand container
       become: true
       become_user: "{{ podman_user }}"
@@ -163,9 +178,15 @@
         podman run -d
         --name dockhand
         --restart=always
+        --network=mgmt_tier
         -p 3000:3000
         -v "{{ podman_socket_path }}:/var/run/docker.sock"
         -v dockhand_data:/app/data
+        --label=traefik.enable=true
+        --label=traefik.http.routers.dockhand.rule=Host(`{{ dockhand_domain }}`)
+        --label=traefik.http.routers.dockhand.entrypoints=websecure
+        --label=traefik.http.routers.dockhand.tls.certresolver=letsencrypt
+        --label=traefik.http.routers.dockhand.tls=true
         "{{ dockhand_image }}"
       when:
         - dockhand_container.rc != 0
