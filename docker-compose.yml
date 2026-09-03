@@ -97,6 +97,12 @@ services:
       - PUID=${USER_PID}
       - PGID=${USER_PID}
       - TZ=${TIMEZONE}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7878/ping || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - download_tier
       - frontend
@@ -121,6 +127,12 @@ services:
       - PUID=${USER_PID}
       - PGID=${USER_PID}
       - TZ=${TIMEZONE}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8989/ping || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - download_tier
       - frontend
@@ -158,6 +170,12 @@ services:
       - PUID=${USER_PID}
       - PGID=${USER_PID}
       - TZ=${TIMEZONE}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9696/ping || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - download_tier
       - frontend
