@@ -1,0 +1,8 @@
+{
+    "editor.tabSize": 2,
+    "extensions.ignoreRecommendations": true,
+    "files.eol": "\n",
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
+    "files.trimTrailingWhitespace": true
+}

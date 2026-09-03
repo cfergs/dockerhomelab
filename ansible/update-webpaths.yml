@@ -1,0 +1,141 @@
+---
+- name: Update application web paths
+  hosts: host
+  become: true
+  gather_facts: false
+
+  vars:
+    domain: media.chickenwaffles.net
+    services:
+      - name: radarr
+        config: /opt/podman/radarr/config.xml
+        check: "grep -Eq '<UrlBase>/radarr/?</UrlBase>' /opt/podman/radarr/config.xml"
+        update_command: "sed -i -E 's#<UrlBase>[^<]*</UrlBase>#<UrlBase>/radarr</UrlBase>#' /opt/podman/radarr/config.xml"
+      - name: sonarr
+        config: /opt/podman/sonarr/config.xml
+        check: "grep -Eq '<UrlBase>/sonarr/?</UrlBase>' /opt/podman/sonarr/config.xml"
+        update_command: "sed -i -E 's#<UrlBase>[^<]*</UrlBase>#<UrlBase>/sonarr</UrlBase>#' /opt/podman/sonarr/config.xml"
+      - name: prowlarr
+        config: /opt/podman/prowlarr/config.xml
+        check: "grep -Eq '<UrlBase>/prowlarr/?</UrlBase>' /opt/podman/prowlarr/config.xml"
+        update_command: "sed -i -E 's#<UrlBase>[^<]*</UrlBase>#<UrlBase>/prowlarr</UrlBase>#' /opt/podman/prowlarr/config.xml"
+      - name: bazarr
+        config: /opt/podman/bazarr/config/config.ini
+        check: "grep -Eq '^base_url[[:space:]]*=[[:space:]]*/subtitles/?[[:space:]]*$' /opt/podman/bazarr/config/config.ini"
+        update_command: "sed -i -E 's#^base_url[[:space:]]*=.*$#base_url = /subtitles/#' /opt/podman/bazarr/config/config.ini"
+      - name: sabnzbd
+        config: /opt/podman/sabnzbd/sabnzbd.ini
+        check: >-
+          grep -Eq '^url_base[[:space:]]*=[[:space:]]*/sabnzbd[[:space:]]*$' /opt/podman/sabnzbd/sabnzbd.ini &&
+          grep -Eq '(^|,[[:space:]]*){{ domain }}([[:space:]]*,|$)' /opt/podman/sabnzbd/sabnzbd.ini
+        update_command: >-
+          if grep -Eq '^url_base[[:space:]]*=' /opt/podman/sabnzbd/sabnzbd.ini; then
+            sed -i -E 's#^url_base[[:space:]]*=.*$#url_base = /sabnzbd#' /opt/podman/sabnzbd/sabnzbd.ini;
+          else
+            printf '\nurl_base = /sabnzbd\n' >> /opt/podman/sabnzbd/sabnzbd.ini;
+          fi;
+          if grep -Eq '^host_whitelist[[:space:]]*=' /opt/podman/sabnzbd/sabnzbd.ini; then
+            if ! grep -Eq '(^|,[[:space:]]*){{ domain }}([[:space:]]*,|$)' /opt/podman/sabnzbd/sabnzbd.ini; then
+              sed -i -E 's#^host_whitelist[[:space:]]*=#host_whitelist = {{ domain }},#' /opt/podman/sabnzbd/sabnzbd.ini;
+            fi;
+            if ! grep -Eq '(^|,[[:space:]]*)sabnzbd([[:space:]]*,|$)' /opt/podman/sabnzbd/sabnzbd.ini; then
+              sed -i -E 's#^host_whitelist[[:space:]]*=#& sabnzbd,#' /opt/podman/sabnzbd/sabnzbd.ini;
+            fi;
+          else
+            printf 'host_whitelist = {{ domain }}, sabnzbd\n' >> /opt/podman/sabnzbd/sabnzbd.ini;
+          fi
+      - name: qbittorrent
+        config: /opt/podman/qbittorrent/config/qBittorrent.conf
+        check: >-
+          awk '
+            /^\[Preferences\]$/ { in_preferences=1; next }
+            /^\[/ { in_preferences=0 }
+            in_preferences && /^WebUI\\Address=/ { found=1 }
+            END { exit !found }
+          ' /opt/podman/qbittorrent/config/qBittorrent.conf
+        update_command: >-
+          config=/opt/podman/qbittorrent/config/qBittorrent.conf;
+          if ! grep -q '^\[Preferences\]$' "$config"; then
+            printf '\n[Preferences]\n' >> "$config";
+          fi;
+          if ! awk '
+            /^\[Preferences\]$/ { in_preferences=1; next }
+            /^\[/ { in_preferences=0 }
+            in_preferences && /^WebUI\\Address=/ { found=1 }
+            END { exit !found }
+          ' "$config"; then
+            temp=$(mktemp "${config}.XXXXXX");
+            awk '
+              /^\[Preferences\]$/ {
+                print;
+                print "WebUI\\Address=*";
+                inserted=1;
+                next
+              }
+              { print }
+            ' "$config" > "$temp";
+            chmod --reference="$config" "$temp";
+            mv "$temp" "$config";
+          fi
+
+  tasks:
+    - name: Record running services
+      ansible.builtin.command: podman ps --format "{% raw %}{{.Names}}{% endraw %}"
+      register: running_services
+      changed_when: false
+
+    - name: Record all services
+      ansible.builtin.command: podman ps --all --format "{% raw %}{{.Names}}{% endraw %}"
+      register: all_services
+      changed_when: false
+
+    - name: Check application web paths
+      ansible.builtin.shell: >-
+        if [ ! -f {{ item.config | quote }} ]; then
+          printf 'missing';
+        elif {{ item.check }}; then
+          printf 'ok';
+        else
+          printf 'update';
+        fi
+      args:
+        executable: /bin/bash
+      loop: "{{ services }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: webpath_checks
+      changed_when: false
+
+    - name: Stop services requiring an update
+      ansible.builtin.command: podman stop {{ item.item.name }}
+      loop: "{{ webpath_checks.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when:
+        - item.stdout == 'update'
+        - item.item.name in running_services.stdout_lines
+
+    - name: Update application web paths
+      ansible.builtin.shell: "{{ item.item.update_command }}"
+      args:
+        executable: /bin/bash
+      loop: "{{ webpath_checks.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when: item.stdout == 'update'
+
+    - name: Restart services that were updated
+      ansible.builtin.command: podman restart {{ item.item.name }}
+      loop: "{{ webpath_checks.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when:
+        - item.stdout == 'update'
+        - item.item.name in all_services.stdout_lines
+
+    - name: Report web path status
+      ansible.builtin.debug:
+        msg: "{{ item.item.name }}: {{ item.stdout }}"
+      loop: "{{ webpath_checks.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"

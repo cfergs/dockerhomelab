@@ -1,0 +1,191 @@
+---
+- name: Install rootless Podman and dockhand on Debian
+  hosts: host
+  become: true
+  gather_facts: true
+
+  vars:
+    dockhand_image: docker.io/fnsys/dockhand:latest
+    podman_user: "{{ ansible_user }}"
+
+  tasks:
+    - name: Require Debian
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == "Debian"
+        fail_msg: "This playbook only supports Debian-based hosts."
+
+    - name: Update apt cache and install Podman
+      ansible.builtin.apt:
+        name: podman
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Allow rootless Podman to bind to ports 80 and 443
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-rootless-podman.conf
+        content: |
+          net.ipv4.ip_unprivileged_port_start=80
+        owner: root
+        group: root
+        mode: "0644"
+      register: podman_sysctl
+
+    - name: Reload sysctl settings
+      ansible.builtin.command: sysctl --system
+      when: podman_sysctl is changed
+      changed_when: true
+
+    - name: Show installed Podman version
+      ansible.builtin.command: podman --version
+      register: podman_version
+      changed_when: false
+
+    - name: Report Podman version
+      ansible.builtin.debug:
+        msg: "{{ podman_version.stdout }}"
+
+    - name: Get the rootless Podman user's UID
+      ansible.builtin.command: id -u "{{ podman_user }}"
+      register: podman_uid_cmd
+      changed_when: false
+
+    - name: Set rootless Podman facts
+      ansible.builtin.set_fact:
+        podman_uid: "{{ podman_uid_cmd.stdout | trim }}"
+        podman_socket_path: "/run/user/{{ podman_uid_cmd.stdout | trim }}/podman/podman.sock"
+
+    - name: Create data directory
+      ansible.builtin.file:
+        path: /data
+        state: directory
+        #owner: "{{ podman_user }}"
+        #group: "{{ podman_user }}"
+        owner:
+        mode: "0755"
+
+    - name: Ensure data tree is owned by the rootless user
+      ansible.builtin.file:
+        path: /data
+        state: directory
+        owner: "{{ podman_user }}"
+        group: "{{ podman_user }}"
+        recurse: true
+
+    - name: Create shared Podman directory
+      ansible.builtin.file:
+        path: /opt/podman
+        state: directory
+        owner: "{{ podman_user }}"
+        group: "{{ podman_user }}"
+        mode: "0755"
+
+    - name: Create secrets directory for docker
+      ansible.builtin.file:
+        path: /opt/secrets
+        state: directory
+        owner: "{{ podman_user }}"
+        group: "{{ podman_user }}"
+        mode: "0700"
+
+    - name: Ensure secret files are restricted to the rootless user
+      ansible.builtin.file:
+        path: "/opt/secrets/{{ item }}"
+        owner: "{{ podman_user }}"
+        group: "{{ podman_user }}"
+        mode: "0600"
+      loop:
+        - openvpn-credentials.txt
+      ignore_errors: true
+
+    # Podman perms are odd, just go with it until i know more
+    - name: Podman Unshare to change ownership of /opt/podman to the rootless user
+      ansible.builtin.command: podman unshare chown -R {{ podman_user }}:{{ podman_user }} /opt/podman
+      become: true
+      become_user: "{{ podman_user }}"
+
+    - name: Podman Unshare to change ownership of /data to the rootless user
+      ansible.builtin.command: podman unshare chown -R {{ podman_user }}:{{ podman_user }} /data
+      become: true
+      become_user: "{{ podman_user }}"
+
+    - name: Enable lingering for the rootless user
+      ansible.builtin.command: loginctl enable-linger "{{ podman_user }}"
+      changed_when: true
+
+    - name: Enable and start the rootless Podman API socket as the user
+      become: true
+      become_user: "{{ podman_user }}"
+      ansible.builtin.systemd:
+        scope: user
+        name: podman.socket
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Enable and start the rootless Podman restart service as the user
+      become: true
+      become_user: "{{ podman_user }}"
+      ansible.builtin.systemd:
+        scope: user
+        name: podman-restart.service
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Check for dockhand data volume
+      become: true
+      become_user: "{{ podman_user }}"
+      ansible.builtin.command: podman volume inspect dockhand_data
+      register: dockhand_volume
+      changed_when: false
+      failed_when: false
+
+    - name: Create dockhand data volume
+      become: true
+      become_user: "{{ podman_user }}"
+      ansible.builtin.command: podman volume create dockhand_data
+      when: dockhand_volume.rc != 0
+
+    - name: Check for dockhand container
+      become: true
+      become_user: "{{ podman_user }}"
+      ansible.builtin.command: podman container inspect dockhand
+      register: dockhand_container
+      changed_when: false
+      failed_when: false
+
+    - name: Create dockhand container
+      become: true
+      become_user: "{{ podman_user }}"
+      ansible.builtin.command: >-
+        podman run -d
+        --name dockhand
+        --restart=always
+        -p 3000:3000
+        -v "{{ podman_socket_path }}:/var/run/docker.sock"
+        -v dockhand_data:/app/data
+        "{{ dockhand_image }}"
+      when:
+        - dockhand_container.rc != 0
+
+    - name: Check whether dockhand is running
+      become: true
+      become_user: "{{ podman_user }}"
+      ansible.builtin.command: podman container inspect -f '{{ '{{' }}.State.Running{{ '}}' }}' dockhand
+      register: dockhand_running
+      changed_when: false
+      failed_when: false
+
+    - name: Start existing dockhand container
+      become: true
+      become_user: "{{ podman_user }}"
+      ansible.builtin.command: podman start dockhand
+      when:
+        - dockhand_container.rc == 0
+        - dockhand_running.stdout.strip() != "true"
+
+    - name: Report dockhand URL
+      ansible.builtin.debug:
+        msg: "dockhand should be available at https://{{ ansible_host }}:3000"
