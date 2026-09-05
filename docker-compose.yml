@@ -26,6 +26,9 @@ secrets:
   cloudflare_token:
     file: /opt/secrets/cloudflare-token.txt
 
+  cloudflare_dns_token:
+    file: /opt/secrets/cloudflare-dns-token.txt
+
 services:
 #reverse proxy solution
   traefik:
@@ -34,6 +37,7 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
+      - CLOUDFLARE_DNS_API_TOKEN_FILE=/run/secrets/cloudflare_dns_token
       - TZ=${TIMEZONE}
     command:
       - --api.insecure=true #troubleshooting
@@ -51,12 +55,16 @@ services:
       - --providers.docker.exposedbydefault=false
       - --certificatesResolvers.letsencrypt.acme.email=${EMAIL}
       - --certificatesResolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
-      - --certificatesResolvers.letsencrypt.acme.tlsChallenge=true # used during the challenge, default is normally to use HTTP.
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.delaybeforecheck=300
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=8.8.8.8:53
       #enable below URL when testing otherwise you hit letsencrypt limits around generating certs
-      - --certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory
+      #- --certificatesResolvers.letsencrypt.acme.caServer=https://acme-v02.api.letsencrypt.org/directory
     networks:
       - frontend
       - mgmt_tier
+    secrets:
+      - cloudflare_dns_token
     volumes:
       - letsencrypt:/letsencrypt/
       - /run/user/${USER_PID}/podman/podman.sock:/var/run/docker.sock:ro
