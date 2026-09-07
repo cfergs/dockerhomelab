@@ -52,10 +52,16 @@
       register: podman_uid_cmd
       changed_when: false
 
+    - name: Get the rootless Podman user's home directory
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ podman_user }}"
+
     - name: Set rootless Podman facts
       ansible.builtin.set_fact:
         podman_uid: "{{ podman_uid_cmd.stdout | trim }}"
         podman_socket_path: "/run/user/{{ podman_uid_cmd.stdout | trim }}/podman/podman.sock"
+        podman_home: "{{ ansible_facts.getent_passwd[podman_user][4] }}"
 
     - name: Create data directory
       ansible.builtin.file:
@@ -115,22 +121,22 @@
       ansible.builtin.command: loginctl enable-linger "{{ podman_user }}"
       changed_when: true
 
+    - name: Mask the package-provided user-scoped Podman restart service
+      become: true
+      become_user: "{{ podman_user }}"
+      ansible.builtin.systemd:
+        scope: user
+        name: podman-restart.service
+        state: stopped
+        masked: true
+        daemon_reload: true
+
     - name: Enable and start the rootless Podman API socket as the user
       become: true
       become_user: "{{ podman_user }}"
       ansible.builtin.systemd:
         scope: user
         name: podman.socket
-        enabled: true
-        state: started
-        daemon_reload: true
-
-    - name: Enable and start the rootless Podman restart service as the user
-      become: true
-      become_user: "{{ podman_user }}"
-      ansible.builtin.systemd:
-        scope: user
-        name: podman-restart.service
         enabled: true
         state: started
         daemon_reload: true
@@ -207,6 +213,39 @@
       when:
         - dockhand_container.rc == 0
         - dockhand_running.stdout.strip() != "true"
+
+    - name: Install system-level rootless Podman boot service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/podman-rootless-restart.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Start rootless Podman containers with restart policy
+          Wants=network-online.target
+          After=network-online.target user@{{ podman_uid }}.service
+          Requires=user@{{ podman_uid }}.service
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=true
+          TimeoutStartSec=70
+          User={{ podman_user }}
+          Environment=HOME={{ podman_home }}
+          Environment=XDG_RUNTIME_DIR=/run/user/{{ podman_uid }}
+          ExecStart=/bin/sh -c 'for attempt in 1 2 3 4 5 6; do /usr/bin/podman start --all --filter restart-policy=always && exit 0; sleep 10; done; exit 1'
+          ExecStop=/usr/bin/podman stop --all --filter restart-policy=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and start system-level rootless Podman boot service
+      ansible.builtin.systemd:
+        name: podman-rootless-restart.service
+        enabled: true
+        state: started
+        daemon_reload: true
 
     - name: Report dockhand URL
       ansible.builtin.debug:
