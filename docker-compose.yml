@@ -102,7 +102,14 @@ services:
     container_name: cloudflared
     command: tunnel run
     environment:
-      TUNNEL_TOKEN_FILE: /run/secrets/cloudflare_token
+      - TUNNEL_TOKEN_FILE=/run/secrets/cloudflare_token
+      - TUNNEL_METRICS=0.0.0.0:60123 # Enable metrics endpoint
+    healthcheck:
+      test: ['CMD', 'cloudflared', 'tunnel', 'ready']
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - frontend
     secrets:
@@ -176,6 +183,12 @@ services:
     environment:
       - LOG_LEVEL=info
       - TZ=${TIMEZONE}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8191 || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - frontend
     labels:
@@ -217,6 +230,12 @@ services:
       - PUID=${USER_PID}
       - PGID=${USER_PID}
       - TZ=${TIMEZONE}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080 || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - download_tier
       - frontend
@@ -240,8 +259,11 @@ services:
     secrets:
       - openvpn_creds
     healthcheck:
-      interval: 5s
-      start_period: 10s
+      test: ["CMD-SHELL", "curl -f http://localhost:9091/transmission/web/ || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -299,6 +321,12 @@ services:
       - PUID=${USER_PID}
       - PGID=${USER_PID}
       - TZ=${TIMEZONE}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8096/health || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - frontend
     volumes:
