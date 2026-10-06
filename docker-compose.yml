@@ -339,3 +339,36 @@ services:
       - traefik.http.routers.jellyfin.tls.certresolver=letsencrypt
       - traefik.http.routers.jellyfin.tls=true
     restart: always
+
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    init: true
+    container_name: seerr
+    environment:
+      - PUID=${USER_PID}
+      - PGID=${USER_PID}
+      - TZ=${TIMEZONE}
+    volumes:
+      - ${CONFIG}/seerr:/app/config
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:5055/api/v1/settings/public || exit 1
+      start_period: 20s
+      timeout: 3s
+      interval: 15s
+      retries: 3
+    networks:
+      - frontend
+    security_opt:
+      - no-new-privileges
+    cap_drop:
+      - ALL
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.seerr.rule=Host(`${SEERR_DOMAIN}`)
+      - traefik.http.routers.seerr.entrypoints=websecure
+      - traefik.http.routers.seerr.tls.certresolver=letsencrypt
+      - traefik.http.routers.seerr.tls=true
+      - traefik.http.routers.seerr.service=seerr
+      - traefik.http.services.seerr.loadbalancer.server.scheme=http
+      - traefik.http.services.seerr.loadbalancer.server.port=5055
+    restart: always
