@@ -20,9 +20,17 @@
         check: "grep -Eq '<UrlBase>/prowlarr/?</UrlBase>' /opt/podman/prowlarr/config.xml"
         update_command: "sed -i -E 's#<UrlBase>[^<]*</UrlBase>#<UrlBase>/prowlarr</UrlBase>#' /opt/podman/prowlarr/config.xml"
       - name: bazarr
-        config: /opt/podman/bazarr/config/config.ini
-        check: "grep -Eq '^base_url[[:space:]]*=[[:space:]]*/subtitles/?[[:space:]]*$' /opt/podman/bazarr/config/config.ini"
-        update_command: "sed -i -E 's#^base_url[[:space:]]*=.*$#base_url = /subtitles/#' /opt/podman/bazarr/config/config.ini"
+        config: /opt/podman/bazarr/config/config.yaml
+        check: >-
+          grep -Eq '^[[:space:]]*general:[[:space:]]*$' /opt/podman/bazarr/config/config.yaml &&
+          grep -Eq '^[[:space:]]*base_url[[:space:]]*:[[:space:]]*/subtitles/?[[:space:]]*$' /opt/podman/bazarr/config/config.yaml
+        update_command: >-
+          sed -i -E '/^[[:space:]]*general:[[:space:]]*$/,/^[^[:space:]][^:]*:/ {
+            /^[[:space:]]*base_url[[:space:]]*:/ {
+              s#^([[:space:]]*base_url[[:space:]]*:[[:space:]]*).*#\1/subtitles#
+              q
+            }
+          }' /opt/podman/bazarr/config/config.yaml
       - name: sabnzbd
         config: /opt/podman/sabnzbd/sabnzbd.ini
         check: >-
