@@ -116,6 +116,35 @@ services:
       - cloudflare_token
     restart: always
 
+  backrest:
+    image: ghcr.io/garethgeorge/backrest:latest
+    container_name: backrest
+    environment:
+      - BACKREST_DATA=/data
+      - BACKREST_CONFIG=/config/config.json
+      - XDG_CACHE_HOME=/cache
+      - TMPDIR=/tmp
+      - TZ=${TIMEZONE}
+    networks:
+      - frontend
+    ports:
+      - 9898:9898
+    volumes:
+      - ${CONFIG}/backrest/data:/data
+      - ${CONFIG}/backrest/config:/config
+      - ${CONFIG}/backrest/cache:/cache
+      - ${CONFIG}/backrest/tmp:/tmp
+      - ${CONFIG}/backrest/rclone:/root/.config/rclone # Mount for rclone config (needed when using rclone remotes)
+      - ${CONFIG}:/userdata  # Mount local paths to backup
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backrest.rule=Host(`${DOMAIN}`)&&PathPrefix(`/backup`)
+      - traefik.http.routers.backrest.entrypoints=websecure
+      - traefik.http.routers.backrest.tls.certresolver=letsencrypt
+      - traefik.http.routers.backrest.tls=true
+      - traefik.http.services.backrest.loadbalancer.server.port=9898
+    restart: always
+
 #movie manager
   radarr:
     image: ghcr.io/hotio/radarr
