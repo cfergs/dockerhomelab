@@ -395,3 +395,26 @@ services:
       - traefik.http.services.seerr.loadbalancer.server.scheme=http
       - traefik.http.services.seerr.loadbalancer.server.port=5055
     restart: always
+
+  kapowarr:
+    image: docker.io/mrcas/kapowarr:latest
+    container_name: kapowarr
+    environment:
+      - PUID=${USER_PID}
+      - PGID=${USER_PID}
+      - TZ=${TIMEZONE}
+    networks:
+      - frontend
+    volumes:
+      - ${CONFIG}/kapowarr:/app/db
+      - ${CONTENT}/downloads/comics:/app/temp_downloads
+      - ${CONTENT}/media/comics:/comics
+    labels:
+      - traefik.enable=true
+      # can't set path via ansible as it doesn't have a config file. Set port and update manually
+      - traefik.http.routers.kapowarr.rule=Host(`${DOMAIN}`)&&PathPrefix(`/comics`)
+      - traefik.http.routers.kapowarr.entrypoints=websecure
+      - traefik.http.routers.kapowarr.tls.certresolver=letsencrypt
+      - traefik.http.routers.kapowarr.tls=true
+      - traefik.http.services.kapowarr.loadbalancer.server.port=5656
+    restart: always
