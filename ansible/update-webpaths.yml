@@ -52,6 +52,10 @@
           else
             printf 'host_whitelist = {{ domain }}, sabnzbd\n' >> /opt/podman/sabnzbd/sabnzbd.ini;
           fi
+      - name: kavita
+        config: /opt/podman/kavita/appsettings.json
+        check: "grep -Eq '\"BaseUrl\"[[:space:]]*:[[:space:]]*\"/kavita/?\"' /opt/podman/kavita/appsettings.json"
+        update_command: "sed -i -E 's#(\"BaseUrl\"[[:space:]]*:[[:space:]]*\")[^\"]*(\")#\\1/kavita\\2#' /opt/podman/kavita/appsettings.json"
       - name: qbittorrent
         config: /opt/podman/qbittorrent/config/qBittorrent.conf
         check: >-

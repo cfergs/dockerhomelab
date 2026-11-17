@@ -418,3 +418,30 @@ services:
       - traefik.http.routers.kapowarr.tls=true
       - traefik.http.services.kapowarr.loadbalancer.server.port=5656
     restart: always
+
+  kavita:
+    image: jvmilazz0/kavita:latest
+    container_name: kavita
+    environment:
+      - PUID=${USER_PID}
+      - PGID=${USER_PID}
+      - TZ=${TIMEZONE}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/api/health || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - frontend
+    volumes:
+      - ${CONTENT}/media/comics:/comics
+      - ${CONFIG}/kavita:/kavita/config
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.kavita.rule=Host(`${DOMAIN}`)&&PathPrefix(`/kavita`)
+      - traefik.http.routers.kavita.entrypoints=websecure
+      - traefik.http.routers.kavita.tls.certresolver=letsencrypt
+      - traefik.http.routers.kavita.tls=true
+      - traefik.http.services.kavita.loadbalancer.server.port=5000
+    restart: always
