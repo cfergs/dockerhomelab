@@ -5,7 +5,7 @@
   gather_facts: true
 
   vars:
-    dockhand_image: docker.io/fnsys/dockhand:latest
+    dockhand_image: docker.io/fnsys/dockhand:v1.0.58
     dockhand_domain: dockhand.chickenwaffles.net
     podman_user: "{{ ansible_user }}"
 
@@ -52,16 +52,10 @@
       register: podman_uid_cmd
       changed_when: false
 
-    - name: Get the rootless Podman user's home directory
-      ansible.builtin.getent:
-        database: passwd
-        key: "{{ podman_user }}"
-
     - name: Set rootless Podman facts
       ansible.builtin.set_fact:
         podman_uid: "{{ podman_uid_cmd.stdout | trim }}"
         podman_socket_path: "/run/user/{{ podman_uid_cmd.stdout | trim }}/podman/podman.sock"
-        podman_home: "{{ ansible_facts.getent_passwd[podman_user][4] }}"
 
     - name: Create data directory
       ansible.builtin.file:
@@ -119,100 +113,71 @@
 
     - name: Enable lingering for the rootless user
       ansible.builtin.command: loginctl enable-linger "{{ podman_user }}"
-      changed_when: true
+      args:
+        creates: "/var/lib/systemd/linger/{{ podman_user }}"
 
-    - name: Mask the package-provided user-scoped Podman restart service
+    - name: Rootless Podman setup and dockhand
       become: true
       become_user: "{{ podman_user }}"
-      ansible.builtin.systemd:
-        scope: user
-        name: podman-restart.service
-        state: stopped
-        masked: true
-        daemon_reload: true
+      block:
+        - name: Mask the package-provided user-scoped Podman restart service
+          ansible.builtin.systemd:
+            scope: user
+            name: podman-restart.service
+            state: stopped
+            masked: true
+            daemon_reload: true
 
-    - name: Enable and start the rootless Podman API socket as the user
-      become: true
-      become_user: "{{ podman_user }}"
-      ansible.builtin.systemd:
-        scope: user
-        name: podman.socket
-        enabled: true
-        state: started
-        daemon_reload: true
+        - name: Enable and start the rootless Podman API socket
+          ansible.builtin.systemd:
+            scope: user
+            name: podman.socket
+            enabled: true
+            state: started
+            daemon_reload: true
 
-    - name: Check for dockhand data volume
-      become: true
-      become_user: "{{ podman_user }}"
-      ansible.builtin.command: podman volume inspect dockhand_data
-      register: dockhand_volume
-      changed_when: false
-      failed_when: false
+        - name: Create dockhand data volume
+          ansible.builtin.command: podman volume create --ignore dockhand_data
+          changed_when: false
 
-    - name: Create dockhand data volume
-      become: true
-      become_user: "{{ podman_user }}"
-      ansible.builtin.command: podman volume create dockhand_data
-      when: dockhand_volume.rc != 0
+        - name: Create mgmt_tier network
+          ansible.builtin.command: podman network create --ignore mgmt_tier
+          changed_when: false
 
-    - name: Check for dockhand container
-      become: true
-      become_user: "{{ podman_user }}"
-      ansible.builtin.command: podman container inspect dockhand
-      register: dockhand_container
-      changed_when: false
-      failed_when: false
+        - name: Get current dockhand image
+          ansible.builtin.command: podman container inspect -f '{{ '{{' }}.ImageName{{ '}}' }}' dockhand
+          register: dockhand_current
+          changed_when: false
+          failed_when: false
 
-    - name: Check for mgmt_tier network
-      become: true
-      become_user: "{{ podman_user }}"
-      ansible.builtin.command: podman network inspect mgmt_tier
-      register: mgmt_network
-      changed_when: false
-      failed_when: false
+        - name: Remove dockhand container running a different image
+          ansible.builtin.command: podman rm -f dockhand
+          register: dockhand_removed
+          when:
+            - dockhand_current.rc == 0
+            - dockhand_current.stdout | trim != dockhand_image
 
-    - name: Create mgmt_tier network
-      become: true
-      become_user: "{{ podman_user }}"
-      ansible.builtin.command: podman network create mgmt_tier
-      when: mgmt_network.rc != 0
+        - name: Create dockhand container
+          ansible.builtin.command: >-
+            podman run -d
+            --name dockhand
+            --restart=always
+            --network=mgmt_tier
+            -p 3000:3000
+            -v "{{ podman_socket_path }}:/var/run/docker.sock"
+            -v dockhand_data:/app/data
+            --label=traefik.enable=true
+            --label=traefik.docker.network=mgmt_tier
+            --label=traefik.http.routers.dockhand.rule=Host(`{{ dockhand_domain }}`)
+            --label=traefik.http.routers.dockhand.entrypoints=websecure
+            --label=traefik.http.routers.dockhand.tls.certresolver=letsencrypt
+            --label=traefik.http.routers.dockhand.tls=true
+            "{{ dockhand_image }}"
+          when: dockhand_current.rc != 0 or dockhand_removed is changed
 
-    - name: Create dockhand container
-      become: true
-      become_user: "{{ podman_user }}"
-      ansible.builtin.command: >-
-        podman run -d
-        --name dockhand
-        --restart=always
-        --network=mgmt_tier
-        -p 3000:3000
-        -v "{{ podman_socket_path }}:/var/run/docker.sock"
-        -v dockhand_data:/app/data
-        --label=traefik.enable=true
-        --label=traefik.docker.network=mgmt_tier
-        --label=traefik.http.routers.dockhand.rule=Host(`{{ dockhand_domain }}`)
-        --label=traefik.http.routers.dockhand.entrypoints=websecure
-        --label=traefik.http.routers.dockhand.tls.certresolver=letsencrypt
-        --label=traefik.http.routers.dockhand.tls=true
-        "{{ dockhand_image }}"
-      when:
-        - dockhand_container.rc != 0
-
-    - name: Check whether dockhand is running
-      become: true
-      become_user: "{{ podman_user }}"
-      ansible.builtin.command: podman container inspect -f '{{ '{{' }}.State.Running{{ '}}' }}' dockhand
-      register: dockhand_running
-      changed_when: false
-      failed_when: false
-
-    - name: Start existing dockhand container
-      become: true
-      become_user: "{{ podman_user }}"
-      ansible.builtin.command: podman start dockhand
-      when:
-        - dockhand_container.rc == 0
-        - dockhand_running.stdout.strip() != "true"
+        - name: Start dockhand if stopped
+          ansible.builtin.command: podman start dockhand
+          changed_when: false
 
     - name: Install system-level rootless Podman boot service
       ansible.builtin.copy:
@@ -230,11 +195,12 @@
           [Service]
           Type=oneshot
           RemainAfterExit=true
-          TimeoutStartSec=70
+          TimeoutStartSec=150
           User={{ podman_user }}
-          Environment=HOME={{ podman_home }}
           Environment=XDG_RUNTIME_DIR=/run/user/{{ podman_uid }}
-          ExecStart=/bin/sh -c 'for attempt in 1 2 3 4 5 6; do /usr/bin/podman start --all --filter restart-policy=always && exit 0; sleep 10; done; exit 1'
+          # pasta fails with "Couldn't set IPv4 route(s)" if started before a default route exists
+          ExecStartPre=/usr/bin/timeout 60 /bin/sh -c 'until ip -4 route show default | grep -q .; do sleep 1; done'
+          ExecStart=/bin/sh -c 'for attempt in 1 2 3 4 5 6; do /usr/bin/podman start --all --filter restart-policy=always && exit 0; /usr/bin/podman container cleanup --all >/dev/null 2>&1; sleep 10; done; exit 1'
           ExecStop=/usr/bin/podman stop --all --filter restart-policy=always
 
           [Install]
@@ -249,4 +215,4 @@
 
     - name: Report dockhand URL
       ansible.builtin.debug:
-        msg: "dockhand should be available at https://{{ ansible_host }}:3000"
+        msg: "dockhand should be available at http://{{ ansible_host }}:3000"
